@@ -1,0 +1,139 @@
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { TransacaoBanco, Categoria } from '@/types/types';
+import { transactionsService } from '@/services/transactionsService';
+
+interface TransactionsContextType {
+  transacoes: TransacaoBanco[];
+  addTransacao: (transacaoData: Omit<TransacaoBanco, 'id' | 'createdAt' | 'updatedAt' | 'tipo'>, categoria: Categoria) => void;
+  addRecurringTransacao: (transacaoData: Omit<TransacaoBanco, 'id' | 'createdAt' | 'updatedAt' | 'tipo'>, categoria: Categoria) => void;
+  addTransferencia: (data: { origem_id: string; destino_id: string; valor: number; data: string; descricao: string; }, contas: any[]) => void;
+  updateTransacao: (tx: TransacaoBanco, categoria: Categoria) => void;
+  updateTransferencia: (data: { originalTxId: string; valor: number; data: string; descricao: string; }, contas: any[]) => void;
+  deleteTransacao: (id: string) => void;
+  deleteTransacoes: (ids: string[]) => void;
+  updateTransacoesCategoria: (ids: string[], newCategoryId: string, categoria: Categoria) => void;
+  toggleTransactionRealizado: (id: string) => void;
+  addPayment: (cartaoId: string, contaId: string, valor: number, data: string, competencia: string, cartaoNome: string) => void;
+  bulkAdd: (transactions: TransacaoBanco[]) => void;
+  bulkReplace: (transactions: TransacaoBanco[]) => void;
+}
+
+const TransactionsContext = createContext<TransactionsContextType | undefined>(undefined);
+
+interface TransactionsProviderProps {
+  children: ReactNode;
+}
+
+export const TransactionsProvider: React.FC<TransactionsProviderProps> = ({ children }) => {
+  const [transacoes, setTransacoes] = useState<TransacaoBanco[]>([]);
+
+  // Load transactions from localStorage on mount
+  useEffect(() => {
+    const loadedTransacoes = transactionsService.getAll();
+    setTransacoes(loadedTransacoes);
+  }, []);
+
+  // Save to localStorage whenever transacoes change
+  useEffect(() => {
+    if (transacoes.length >= 0) { // Allow empty array to be saved
+      transactionsService.save(transacoes);
+    }
+  }, [transacoes]);
+
+  const addTransacao = (transacaoData: Omit<TransacaoBanco, 'id' | 'createdAt' | 'updatedAt' | 'tipo'>, categoria: Categoria) => {
+    const newTransacao = transactionsService.create(transacaoData, categoria);
+    setTransacoes(prev => [...prev, newTransacao]);
+  };
+
+  const addRecurringTransacao = (transacaoData: Omit<TransacaoBanco, 'id' | 'createdAt' | 'updatedAt' | 'tipo'>, categoria: Categoria) => {
+    const newTransactions = transactionsService.createRecurring(transacaoData, categoria);
+    setTransacoes(prev => [...prev, ...newTransactions]);
+  };
+
+  const addTransferencia = (data: { origem_id: string; destino_id: string; valor: number; data: string; descricao: string; }, contas: any[]) => {
+    const transferTxs = transactionsService.createTransfer(data, contas);
+    setTransacoes(prev => [...prev, ...transferTxs]);
+  };
+
+  const updateTransacao = (tx: TransacaoBanco, categoria: Categoria) => {
+    const updatedTx = transactionsService.update(tx, categoria);
+    setTransacoes(prev => prev.map(t => t.id === updatedTx.id ? updatedTx : t));
+  };
+
+  const updateTransferencia = (data: { originalTxId: string; valor: number; data: string; descricao: string; }, contas: any[]) => {
+    setTransacoes(prev => transactionsService.updateTransfer(data, prev, contas));
+  };
+
+  const deleteTransacao = (id: string) => {
+    setTransacoes(prev => {
+      const tx = prev.find(t => t.id === id);
+      let idsToDelete = new Set([id]);
+      if (tx?.transferencia_par_id) idsToDelete.add(tx.transferencia_par_id);
+      return prev.filter(t => !idsToDelete.has(t.id));
+    });
+  };
+
+  const deleteTransacoes = (ids: string[]) => {
+    setTransacoes(prev => {
+      let idsToDelete = new Set(ids);
+      ids.forEach(id => {
+        const tx = prev.find(t => t.id === id);
+        if(tx?.transferencia_par_id) idsToDelete.add(tx.transferencia_par_id);
+      });
+      return prev.filter(t => !idsToDelete.has(t.id));
+    });
+  };
+
+  const updateTransacoesCategoria = (ids: string[], newCategoryId: string, categoria: Categoria) => {
+    setTransacoes(prev => prev.map(t => 
+      ids.includes(t.id) 
+        ? {...t, categoria_id: newCategoryId, tipo: categoria.tipo, updatedAt: new Date().toISOString()} 
+        : t
+    ));
+  };
+
+  const toggleTransactionRealizado = (id: string) => {
+    setTransacoes(prev => prev.map(t => t.id === id ? { ...t, realizado: !t.realizado } : t));
+  };
+
+  const addPayment = (cartaoId: string, contaId: string, valor: number, data: string, competencia: string, cartaoNome: string) => {
+    const payment = transactionsService.createPayment(cartaoId, contaId, valor, data, competencia, cartaoNome);
+    setTransacoes(prev => [...prev, payment]);
+  };
+
+  const bulkAdd = (transactions: TransacaoBanco[]) => {
+    setTransacoes(prev => [...prev, ...transactions]);
+  };
+
+  const bulkReplace = (transactions: TransacaoBanco[]) => {
+    setTransacoes(transactions);
+  };
+
+  return (
+    <TransactionsContext.Provider value={{
+      transacoes,
+      addTransacao,
+      addRecurringTransacao,
+      addTransferencia,
+      updateTransacao,
+      updateTransferencia,
+      deleteTransacao,
+      deleteTransacoes,
+      updateTransacoesCategoria,
+      toggleTransactionRealizado,
+      addPayment,
+      bulkAdd,
+      bulkReplace
+    }}>
+      {children}
+    </TransactionsContext.Provider>
+  );
+};
+
+export const useTransactionsContext = () => {
+  const context = useContext(TransactionsContext);
+  if (context === undefined) {
+    throw new Error('useTransactionsContext must be used within a TransactionsProvider');
+  }
+  return context;
+};

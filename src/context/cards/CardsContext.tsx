@@ -1,0 +1,177 @@
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { Cartao, CompraCartao, ParcelaCartao } from '@/types/types';
+import { cardsService } from '@/services/cardsService';
+
+interface CardsContextType {
+  cartoes: Cartao[];
+  compras: CompraCartao[];
+  parcelas: ParcelaCartao[];
+  addCartao: (cartaoData: Omit<Cartao, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  updateCartao: (cartao: Cartao) => void;
+  deleteCartao: (id: string) => void;
+  addCompraCartao: (compraData: Omit<CompraCartao, 'id' | 'createdAt' | 'updatedAt' | 'parcelas_total'> & { parcelas: number }) => boolean;
+  addRecurringCompraCartao: (compraData: Omit<CompraCartao, 'id' | 'createdAt' | 'updatedAt' | 'parcelas_total'>) => boolean;
+  updateCompraCartao: (compra: CompraCartao & { parcelas: number }) => boolean;
+  deleteCompraCartao: (id: string) => void;
+  bulkReplaceCompras: (compras: CompraCartao[]) => void;
+  bulkReplaceParcelas: (parcelas: ParcelaCartao[]) => void;
+  bulkReplaceCartoes: (cartoes: Cartao[]) => void;
+}
+
+const CardsContext = createContext<CardsContextType | undefined>(undefined);
+
+interface CardsProviderProps {
+  children: ReactNode;
+}
+
+export const CardsProvider: React.FC<CardsProviderProps> = ({ children }) => {
+  const [cartoes, setCartoes] = useState<Cartao[]>([]);
+  const [compras, setCompras] = useState<CompraCartao[]>([]);
+  const [parcelas, setParcelas] = useState<ParcelaCartao[]>([]);
+
+  // Load data from localStorage on mount
+  useEffect(() => {
+    const loadedCartoes = cardsService.getAll();
+    setCartoes(loadedCartoes);
+
+    // Load compras and parcelas
+    try {
+      const comprasItem = window.localStorage.getItem('compras');
+      setCompras(comprasItem ? JSON.parse(comprasItem) : []);
+      
+      const parcelasItem = window.localStorage.getItem('parcelas');
+      setParcelas(parcelasItem ? JSON.parse(parcelasItem) : []);
+    } catch (error) {
+      console.error('Error loading compras/parcelas:', error);
+      setCompras([]);
+      setParcelas([]);
+    }
+  }, []);
+
+  // Save to localStorage whenever data changes
+  useEffect(() => {
+    if (cartoes.length >= 0) {
+      cardsService.save(cartoes);
+    }
+  }, [cartoes]);
+
+  useEffect(() => {
+    if (compras.length >= 0) {
+      try {
+        window.localStorage.setItem('compras', JSON.stringify(compras));
+      } catch (error) {
+        console.error('Error saving compras:', error);
+      }
+    }
+  }, [compras]);
+
+  useEffect(() => {
+    if (parcelas.length >= 0) {
+      try {
+        window.localStorage.setItem('parcelas', JSON.stringify(parcelas));
+      } catch (error) {
+        console.error('Error saving parcelas:', error);
+      }
+    }
+  }, [parcelas]);
+
+  const addCartao = (cartaoData: Omit<Cartao, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const newCartao = cardsService.create(cartaoData);
+    setCartoes(prev => [...prev, newCartao]);
+  };
+
+  const updateCartao = (cartao: Cartao) => {
+    const updatedCartao = cardsService.update(cartao);
+    setCartoes(prev => prev.map(c => c.id === cartao.id ? updatedCartao : c));
+  };
+
+  const deleteCartao = (id: string) => {
+    const comprasToDelete = new Set(compras.filter(c => c.cartao_id === id).map(c => c.id));
+    setCartoes(prev => prev.filter(c => c.id !== id));
+    setCompras(prev => prev.filter(c => c.cartao_id !== id));
+    setParcelas(prev => prev.filter(p => !comprasToDelete.has(p.compra_id)));
+  };
+
+  const addCompraCartao = (compraData: Omit<CompraCartao, 'id' | 'createdAt' | 'updatedAt' | 'parcelas_total'> & { parcelas: number }): boolean => {
+    const cartao = cartoes.find(c => c.id === compraData.cartao_id);
+    if (!cartao) return false;
+
+    if (compraData.recorrencia) {
+      const { compras: newCompras, parcelas: newParcelas } = cardsService.createRecurringPurchase(compraData, cartao);
+      setCompras(prev => [...prev, ...newCompras]);
+      setParcelas(prev => [...prev, ...newParcelas]);
+    } else {
+      const { compra: newCompra, parcelas: newParcelas } = cardsService.createPurchase(compraData, cartao);
+      setCompras(prev => [...prev, newCompra]);
+      setParcelas(prev => [...prev, ...newParcelas]);
+    }
+    return true;
+  };
+
+  const addRecurringCompraCartao = (compraData: Omit<CompraCartao, 'id' | 'createdAt' | 'updatedAt' | 'parcelas_total'>): boolean => {
+    const cartao = cartoes.find(c => c.id === compraData.cartao_id);
+    if (!cartao) return false;
+
+    const { compras: newCompras, parcelas: newParcelas } = cardsService.createRecurringPurchase(compraData, cartao);
+    setCompras(prev => [...prev, ...newCompras]);
+    setParcelas(prev => [...prev, ...newParcelas]);
+    return true;
+  };
+
+  const updateCompraCartao = (compra: CompraCartao & { parcelas: number }): boolean => {
+    const cartao = cartoes.find(c => c.id === compra.cartao_id);
+    if (!cartao) return false;
+
+    const { updatedCompra, newParcelas } = cardsService.updatePurchase(compra, cartao, parcelas);
+    const parcelasToKeep = parcelas.filter(p => p.compra_id !== compra.id);
+    
+    setCompras(prev => prev.map(c => c.id === compra.id ? updatedCompra : c));
+    setParcelas([...parcelasToKeep, ...newParcelas]);
+    return true;
+  };
+
+  const deleteCompraCartao = (id: string) => {
+    setCompras(prev => prev.filter(c => c.id !== id));
+    setParcelas(prev => prev.filter(p => p.compra_id !== id));
+  };
+
+  const bulkReplaceCompras = (newCompras: CompraCartao[]) => {
+    setCompras(newCompras);
+  };
+
+  const bulkReplaceParcelas = (newParcelas: ParcelaCartao[]) => {
+    setParcelas(newParcelas);
+  };
+
+  const bulkReplaceCartoes = (newCartoes: Cartao[]) => {
+    setCartoes(newCartoes);
+  };
+
+  return (
+    <CardsContext.Provider value={{
+      cartoes,
+      compras,
+      parcelas,
+      addCartao,
+      updateCartao,
+      deleteCartao,
+      addCompraCartao,
+      addRecurringCompraCartao,
+      updateCompraCartao,
+      deleteCompraCartao,
+      bulkReplaceCompras,
+      bulkReplaceParcelas,
+      bulkReplaceCartoes
+    }}>
+      {children}
+    </CardsContext.Provider>
+  );
+};
+
+export const useCardsContext = () => {
+  const context = useContext(CardsContext);
+  if (context === undefined) {
+    throw new Error('useCardsContext must be used within a CardsProvider');
+  }
+  return context;
+};
