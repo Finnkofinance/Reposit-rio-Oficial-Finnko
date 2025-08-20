@@ -992,7 +992,7 @@ const App: React.FC = () => {
             <Sidebar currentPage={currentPage} setCurrentPage={setCurrentPageWithNavReset} />
             <div className="flex-1 flex flex-col overflow-hidden">
                 <Header setCurrentPage={setCurrentPageWithNavReset} profilePicture={profilePicture} onImageSelect={setImageToCrop} onImageRemove={handleRemoveProfilePicture} onSearchClick={() => setIsSearchModalOpen(true)} theme={theme} setTheme={setTheme} />
-                <main className="flex-1 overflow-y-auto p-4 pb-24 md:p-8">
+                <main className="flex-1 overflow-y-auto p-4 pb-36 md:pb-24 md:p-8">
                     {renderPage()}
                 </main>
             </div>

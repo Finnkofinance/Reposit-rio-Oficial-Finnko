@@ -1,19 +1,16 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Plus, Pencil, Trash2, FilterX, Search, ArrowRightLeft, ArrowDown, ArrowUp, ChevronDown } from 'lucide-react';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
 
 import Modal from '../components/Modal';
 import CurrencyInput from '../components/CurrencyInput';
 import KPICard from '../components/KPICard';
 import DatePeriodSelector from '../components/DatePeriodSelector';
 import { ContaBancaria, TransacaoBanco, Categoria, TipoCategoria, ModalState, NavigationState } from '../types';
-import { getCategoryIcon, CORES_CARTAO, CORES_BANCO } from '../constants';
-import { formatCurrency, formatDate, calculateSaldo } from '../utils/format';
+import { CORES_CARTAO, CORES_BANCO } from '../constants';
+import { formatCurrency, calculateSaldo } from '../utils/format';
 import MobileSelector from '../components/MobileSelector';
 
 const getTodayString = () => new Date().toISOString().split('T')[0];
-
-type SortKey = 'data' | 'descricao' | 'categoria_id' | 'valor';
-type SortDirection = 'ascending' | 'descending';
 
 function getBankColorFromName(name: string): string | null {
     if (!name) return null;
@@ -59,15 +56,11 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
   toggleTransactionRealizado, modalState, openModal, closeModal, selectedView, setSelectedView, selectedMonth, onMonthChange,
   navigationState, clearNavigationState
 }) => {
-  const [filters, setFilters] = useState({ categoriaFiltro: '', tipoFiltro: '', textoFiltro: '' });
   const [sortConfig, setSortConfig] = useState<{ key: SortKey, direction: SortDirection }>({ key: 'data', direction: 'descending' });
   
   const [editingConta, setEditingConta] = useState<ContaBancaria | null>(null);
   const [isSaldoInicialEditBlocked, setSaldoInicialEditBlocked] = useState(false);
-  const [isMassEditModalOpen, setIsMassEditModalOpen] = useState(false);
-  const [massEditCategoryId, setMassEditCategoryId] = useState('');
-
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // recursos de edição em massa removidos
 
   // Form states
   const [contaForm, setContaForm] = useState({ nome: '', saldo_inicial: '', data_inicial: getTodayString(), ativo: true, cor: CORES_CARTAO[0].value });
@@ -85,15 +78,12 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
         openModal('nova-conta');
         stateProcessed = true;
     }
-    if (navigationState?.filters) {
-        setFilters(f => ({ ...f, ...navigationState.filters }));
-        stateProcessed = true;
-    }
+    // filtros removidos
 
     if (stateProcessed) {
         clearNavigationState();
     }
-  }, [navigationState, clearNavigationState, setSelectedView, openModal, setFilters]);
+  }, [navigationState, clearNavigationState, setSelectedView, openModal]);
 
   const contasComSaldo = useMemo(() => {
     return contas.map(conta => ({
@@ -141,6 +131,97 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
     return { saldoConsolidadoTotal, saldoContaSelecionada, entradasMes, saidasMes, investimentosMes };
   }, [contasComSaldo, transacoes, selectedView, selectedMonth]);
 
+  type BankHistoryItem = {
+    id: string;
+    data: string;
+    titulo: string;
+    subtitulo?: string;
+    valor?: number;
+    tipo: 'conta_criada' | 'transferencia' | 'entrada' | 'saida';
+    contaCor?: string;
+  };
+
+  const bankHistory = useMemo<BankHistoryItem[]>(() => {
+    const [year, month] = selectedMonth.split('-').map(Number);
+    const startDate = `${selectedMonth}-01`;
+    const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+    const contasVisiveisIds = selectedView === 'all' ? new Set(contas.map(c => c.id)) : new Set([selectedView]);
+    const contaMap = new Map(contas.map(c => [c.id, c]));
+
+    const txs = transacoes
+      .filter(t => t.data >= startDate && t.data <= endDate)
+      .filter(t => contasVisiveisIds.has(t.conta_id));
+
+    const items: BankHistoryItem[] = [];
+
+    // Conta criada (saldo inicial)
+    txs.filter(t => t.meta_saldo_inicial).forEach(t => {
+      const conta = contaMap.get(t.conta_id);
+      items.push({
+        id: `acc-${t.id}`,
+        data: t.data,
+        titulo: `Conta criada: ${conta?.nome || ''}`,
+        subtitulo: `Saldo inicial ${formatCurrency(t.valor)}`,
+        tipo: 'conta_criada',
+        contaCor: conta?.cor,
+      });
+    });
+
+    // Transferências (agregar par)
+    txs.filter(t => t.tipo === TipoCategoria.Transferencia && !t.meta_saldo_inicial && !t.meta_pagamento)
+      .forEach(t => {
+        const par = transacoes.find(p => p.id === t.transferencia_par_id);
+        if (!par) return;
+        // Mostra apenas uma vez, a perna de débito
+        if (t.id < par.id) {
+          const origem = contaMap.get(t.conta_id)?.nome || '';
+          const destino = contaMap.get(par.conta_id)?.nome || '';
+          items.push({
+            id: `trf-${t.id}`,
+            data: t.data,
+            titulo: `Transferência: ${origem} → ${destino}`,
+            subtitulo: undefined,
+            valor: t.valor,
+            tipo: 'transferencia',
+            contaCor: contaMap.get(t.conta_id)?.cor,
+          });
+        }
+      });
+
+    // Entradas
+    txs.filter(t => t.tipo === TipoCategoria.Entrada)
+      .forEach(t => {
+        const conta = contaMap.get(t.conta_id);
+        items.push({
+          id: `ent-${t.id}`,
+          data: t.data,
+          titulo: `Entrada em ${conta?.nome || ''}`,
+          subtitulo: t.descricao,
+          valor: t.valor,
+          tipo: 'entrada',
+          contaCor: conta?.cor,
+        });
+      });
+
+    // Saídas (inclui pagamento de cartão como saída)
+    txs.filter(t => t.tipo === TipoCategoria.Saida || t.meta_pagamento)
+      .forEach(t => {
+        const conta = contaMap.get(t.conta_id);
+        items.push({
+          id: `sai-${t.id}`,
+          data: t.data,
+          titulo: `Saída em ${conta?.nome || ''}`,
+          subtitulo: t.descricao,
+          valor: t.valor,
+          tipo: 'saida',
+          contaCor: conta?.cor,
+        });
+      });
+
+    // Ordenar por data desc
+    return items.sort((a, b) => b.data.localeCompare(a.data));
+  }, [transacoes, contas, selectedView, selectedMonth]);
+
   const transacoesFiltradas = useMemo(() => {
     const [year, month] = selectedMonth.split('-').map(Number);
     const startDate = `${selectedMonth}-01`;
@@ -151,9 +232,6 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
     return transacoes
       .filter(t => t.data >= startDate && t.data <= endDate)
       .filter(t => contasVisiveisIds.has(t.conta_id))
-      .filter(t => !filters.categoriaFiltro || t.categoria_id === filters.categoriaFiltro)
-      .filter(t => !filters.tipoFiltro || t.tipo === filters.tipoFiltro)
-      .filter(t => !filters.textoFiltro || t.descricao.toLowerCase().includes(filters.textoFiltro.toLowerCase()))
       .sort((a, b) => {
         const key = sortConfig.key;
         const direction = sortConfig.direction === 'ascending' ? 1 : -1;
@@ -179,7 +257,7 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
         // Secondary sort by date
         return b.data.localeCompare(a.data);
       });
-  }, [transacoes, selectedMonth, selectedView, contas, filters, sortConfig, categorias]);
+  }, [transacoes, selectedMonth, selectedView, contas, sortConfig, categorias]);
   
   useEffect(() => {
     if (isContaModalOpen) {
@@ -214,32 +292,9 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
     }
   }, [contaForm.nome, isContaModalOpen, editingConta, isColorManuallySet]);
 
-  const handleSelect = (id: string) => {
-    setSelectedIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) newSet.delete(id); else newSet.add(id);
-      return newSet;
-    });
-  };
+  // seleção/edição em massa removidas
 
-  const isAllSelected = transacoesFiltradas.length > 0 && selectedIds.size === transacoesFiltradas.length;
-
-  const handleSelectAll = () => {
-    if (isAllSelected) setSelectedIds(new Set());
-    else setSelectedIds(new Set(transacoesFiltradas.map(t => t.id)));
-  };
-  
-  const handleConfirmMassEdit = () => {
-    if (!massEditCategoryId) return;
-    updateTransacoesCategoria(Array.from(selectedIds), massEditCategoryId);
-    setIsMassEditModalOpen(false);
-    setSelectedIds(new Set());
-    setMassEditCategoryId('');
-  };
-
-  useEffect(() => {
-    setSelectedIds(new Set());
-  }, [filters, selectedView, selectedMonth, sortConfig]);
+  // sem seleção para resetar
 
   const handleContaSubmit = (e: React.FormEvent) => {
       e.preventDefault();
@@ -269,8 +324,7 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
     else openModal('editar-transacao', { transacao: t });
   };
   
-  const handleFilterChange = (filterName: keyof typeof filters, value: string) => setFilters(prev => ({ ...prev, [filterName]: value }));
-  const clearFilters = () => setFilters({ categoriaFiltro: '', tipoFiltro: '', textoFiltro: '' });
+  // filtros removidos
 
   const requestSort = (key: SortKey) => {
     let direction: SortDirection = 'ascending';
@@ -291,7 +345,7 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
 
     if(isMobile) {
         return (
-            <div key={t.id} className={`relative border-t border-gray-200 dark:border-gray-700 ${selectedIds.has(t.id) ? 'bg-green-50 dark:bg-green-900/50' : ''}`} onClick={() => handleSelect(t.id)}>
+            <div key={t.id} className={`relative border-t border-gray-200 dark:border-gray-700`}>
                 <div className="absolute left-0 top-0 h-full w-1.5 rounded-r-sm" style={{ backgroundColor: conta?.cor || 'transparent' }}></div>
                 <div className="p-4 pl-6">
                     <div className="flex justify-between items-start">
@@ -307,18 +361,8 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
                             <div className="text-xs text-gray-400 dark:text-gray-500">{formatDate(t.data)}</div>
                         </div>
                     </div>
-                    <div className="flex justify-between items-center mt-2">
-                         <button
-                            onClick={(e) => { e.stopPropagation(); if (!t.realizado) toggleTransactionRealizado(t.id); }}
-                            disabled={t.realizado}
-                            className={`px-2 py-0.5 text-xs rounded-full transition-colors ${t.realizado ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400 hover:bg-green-500/40 cursor-pointer'}`}
-                         >
-                            {t.realizado ? 'Realizado' : 'Previsto'}
-                         </button>
-                         <div className="flex justify-center space-x-3">
-                            <button onClick={(e) => { e.stopPropagation(); handleEditClick(t); }} className="text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"><Pencil size={16}/></button>
-                            <button onClick={(e) => { e.stopPropagation(); deleteTransacao(t.id); }} className="text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400"><Trash2 size={16}/></button>
-                         </div>
+                    <div className="flex justify-end items-center mt-2 space-x-3 text-gray-500 dark:text-gray-400">
+                        <button onClick={() => deleteTransacao(t.id)} className="hover:text-red-500 dark:hover:text-red-400"><Trash2 size={16}/></button>
                     </div>
                 </div>
             </div>
@@ -326,39 +370,18 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
     }
 
     return (
-        <tr key={t.id} className={`border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 ${selectedIds.has(t.id) ? 'bg-green-50 dark:bg-green-900/50' : ''}`} style={{ borderLeft: `4px solid ${conta?.cor || 'transparent'}` }} onClick={() => handleSelect(t.id)}>
-            <td className="p-3 text-center"><input type="checkbox" className="h-4 w-4 rounded bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-green-500 focus:ring-offset-white dark:focus:ring-offset-gray-800 focus:ring-green-500" checked={selectedIds.has(t.id)} onChange={() => handleSelect(t.id)} onClick={(e) => e.stopPropagation()} /></td>
+        <tr key={t.id} className={`border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50`} style={{ borderLeft: `4px solid ${conta?.cor || 'transparent'}` }}>
             <td className="p-3 whitespace-nowrap text-gray-700 dark:text-gray-300">{formatDate(t.data)}</td>
             <td className="p-3"><div className="flex items-center space-x-2 text-gray-800 dark:text-white">{isTransfer && <span title={`Transferência ${isDebit ? 'para' : 'de'} ${transferAccountName}`}><ArrowRightLeft size={14} className="text-yellow-500 dark:text-yellow-400 flex-shrink-0" /></span>}<span>{t.descricao}</span></div></td>
             <td className="p-3 flex items-center space-x-2 text-gray-700 dark:text-gray-300">{categoria && getCategoryIcon(categoria.tipo)}<span>{categoria?.nome || 'N/A'}</span></td>
             <td className={`p-3 text-right font-semibold ${valorColor}`}>{formatCurrency(t.valor)}</td>
-            <td className="p-3 text-center">
-                <button
-                    onClick={(e) => { e.stopPropagation(); if (!t.realizado) toggleTransactionRealizado(t.id); }}
-                    disabled={t.realizado}
-                    className={`px-2 py-0.5 text-xs rounded-full transition-colors ${t.realizado ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400 hover:bg-green-500/40 cursor-pointer'}`}
-                >
-                    {t.realizado ? 'Realizado' : 'Previsto'}
-                </button>
-            </td>
             <td className="p-3 text-center flex justify-center space-x-3">
-                <button onClick={(e) => { e.stopPropagation(); handleEditClick(t); }} className="text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"><Pencil size={16}/></button>
-                <button onClick={(e) => { e.stopPropagation(); deleteTransacao(t.id); }} className="text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400"><Trash2 size={16}/></button>
+                <button onClick={() => deleteTransacao(t.id)} className="text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400"><Trash2 size={16}/></button>
             </td>
         </tr>
     );
   };
-  
-  const SortableHeader: React.FC<{ sortKey: SortKey, label: string }> = ({ sortKey, label }) => (
-    <th className="p-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50" onClick={() => requestSort(sortKey)}>
-        <div className="flex items-center space-x-2">
-            <span>{label}</span>
-            {sortConfig.key === sortKey && (
-                sortConfig.direction === 'ascending' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
-            )}
-        </div>
-    </th>
-  );
+  // cabeçalho ordenável removido
 
 
   return (
@@ -448,61 +471,42 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
             <KPICard label="Investimentos no Mês" value={kpisData.investimentosMes} icon="invest" />
           </div>
 
-          <div className="flex-1 bg-white dark:bg-gray-800 rounded-lg p-4 flex flex-col overflow-hidden shadow-sm dark:shadow-none border dark:border-transparent">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-              <div className="relative md:col-span-2">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input type="text" placeholder="Pesquisar por descrição..." value={filters.textoFiltro} onChange={e => handleFilterChange('textoFiltro', e.target.value)} className="w-full bg-gray-100 dark:bg-gray-700 p-2 pl-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 dark:text-white" />
-              </div>
-              <div className="relative">
-                <select value={filters.categoriaFiltro} onChange={e => handleFilterChange('categoriaFiltro', e.target.value)} className="w-full bg-gray-100 dark:bg-gray-700 p-2 pl-3 pr-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none text-gray-900 dark:text-white"><option value="">Todas as categorias</option>{categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
-              </div>
-              <div className="relative">
-                <select value={filters.tipoFiltro} onChange={e => handleFilterChange('tipoFiltro', e.target.value)} className="w-full bg-gray-100 dark:bg-gray-700 p-2 pl-3 pr-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none text-gray-900 dark:text-white"><option value="">Todos os tipos</option>{Object.values(TipoCategoria).map(t => <option key={t} value={t}>{t}</option>)}</select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
+          <div className="flex-1 bg-white dark:bg-gray-800 rounded-lg p-4 flex flex-col overflow-hidden shadow-sm dark:shadow-none border dark:border-transparent min-h-[70vh] md:min-h-0">
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 gap-3">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Histórico de Operações {selectedView !== 'all' ? `(${contas.find(c => c.id === selectedView)?.nome || ''})` : '(Todas)'}
+              </h3>
+              <div className="flex space-x-2 w-full md:w-auto">
+                <button onClick={() => openModal('nova-transacao')} className="w-full md:w-auto bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-3 rounded-lg flex items-center justify-center space-x-2 text-sm">
+                  <Plus size={16}/><span>Nova Transação</span>
+                </button>
               </div>
             </div>
-            {(filters.categoriaFiltro || filters.tipoFiltro || filters.textoFiltro) && <button onClick={clearFilters} className="text-sm text-gray-500 dark:text-gray-400 flex items-center space-x-1 hover:text-gray-800 dark:hover:text-white mb-2"><FilterX size={14} /><span>Limpar filtros</span></button>}
-            
-            {/* Desktop Table */}
-            <div className="overflow-y-auto flex-grow hidden md:block">
-              <table className="w-full text-left text-sm">
-                <thead className="sticky top-0 bg-white dark:bg-gray-800 z-10">
-                    <tr className="text-gray-600 dark:text-gray-300">
-                        <th className="p-3 w-10 text-center"><input type="checkbox" className="h-4 w-4 rounded bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-green-500 focus:ring-offset-white dark:focus:ring-offset-gray-800 focus:ring-green-500" checked={isAllSelected} onChange={handleSelectAll} title={isAllSelected ? "Desmarcar todos" : "Marcar todos"}/></th>
-                        <SortableHeader sortKey="data" label="Data" />
-                        <SortableHeader sortKey="descricao" label="Descrição" />
-                        <SortableHeader sortKey="categoria_id" label="Categoria" />
-                        <th className="p-3 text-right cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50" onClick={() => requestSort('valor')}>
-                            <div className="flex items-center justify-end space-x-2">
-                                <span>Valor</span>
-                                {sortConfig.key === 'valor' && ( sortConfig.direction === 'ascending' ? <ArrowUp size={14} /> : <ArrowDown size={14} /> )}
-                            </div>
-                        </th>
-                        <th className="p-3 text-center">Status</th>
-                        <th className="p-3 text-center">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>{transacoesFiltradas.map(t => renderTransactionRow(t, false))}{transacoesFiltradas.length === 0 && (<tr><td colSpan={7} className="text-center text-gray-500 dark:text-gray-400 py-8">Nenhuma transação encontrada.</td></tr>)}</tbody>
-              </table>
-            </div>
-             {/* Mobile List */}
-            <div className="overflow-y-auto flex-grow md:hidden">
-                {transacoesFiltradas.length > 0 ? transacoesFiltradas.map(t => renderTransactionRow(t, true)) : (<div className="text-center text-gray-500 dark:text-gray-400 py-8">Nenhuma transação encontrada.</div>)}
+            <div className="overflow-y-auto flex-1 divide-y divide-gray-200 dark:divide-gray-700">
+              {bankHistory.length === 0 && (
+                <div className="text-center text-gray-500 dark:text-gray-400 py-8">Nenhum evento neste período.</div>
+              )}
+              {bankHistory.map(item => (
+                <div key={item.id} className="flex items-center justify-between py-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-1.5 h-8 rounded-full" style={{ backgroundColor: item.contaCor || '#6b7280' }} />
+                    <div>
+                      <div className="font-semibold text-gray-900 dark:text-white">{item.titulo}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">{new Date(item.data).toLocaleDateString('pt-BR')}{item.subtitulo ? ` • ${item.subtitulo}` : ''}</div>
+                    </div>
+                  </div>
+                  {typeof item.valor === 'number' && (
+                    <div className={`font-semibold ${item.tipo === 'entrada' ? 'text-green-500' : item.tipo === 'saida' ? 'text-red-500' : 'text-gray-400'}`}>
+                      {formatCurrency(item.valor)}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
       </div>
       
-      {selectedIds.size > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 md:left-64 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4 shadow-lg flex justify-between items-center z-20 animate-fade-in-up">
-            <span className="text-gray-800 dark:text-white font-medium">{selectedIds.size} selecionada(s)</span>
-            <div className="flex space-x-3">
-                <button onClick={() => setIsMassEditModalOpen(true)} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2 transition-colors"><Pencil size={16} /><span>Alterar Categoria</span></button>
-                <button onClick={() => { deleteTransacoes(Array.from(selectedIds)); setSelectedIds(new Set()); }} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2 transition-colors"><Trash2 size={16} /><span>Excluir</span></button>
-            </div>
-        </div>
-      )}
+      {/* Barra de seleção e modal de edição em massa removidos */}
 
       <Modal 
           isOpen={isContaModalOpen} 
@@ -540,7 +544,6 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
             </div>
         </form>
       </Modal>
-      <Modal isOpen={isMassEditModalOpen} onClose={() => setIsMassEditModalOpen(false)} title="Alterar Categoria em Massa" footer={<><button onClick={() => setIsMassEditModalOpen(false)} className="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white font-bold py-2 px-4 rounded-lg">Cancelar</button><button onClick={handleConfirmMassEdit} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg" disabled={!massEditCategoryId}>Confirmar</button></>}><div className="space-y-4"><p className="text-gray-700 dark:text-gray-300">Selecione a nova categoria para as {selectedIds.size} transações selecionadas.</p><div><label htmlFor="mass-edit-category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nova Categoria</label><select id="mass-edit-category" value={massEditCategoryId} onChange={e => setMassEditCategoryId(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-700 p-2 rounded text-gray-900 dark:text-white"><option value="" disabled>Selecione...</option>{categorias.filter(c => !c.sistema).map(c => (<option key={c.id} value={c.id}>{c.nome} ({c.tipo})</option>))}</select></div></div></Modal>
     </div>
   );
 };
