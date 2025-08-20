@@ -11,7 +11,7 @@ export default function PerfilPageWrapper() {
   const { categorias, addCategoria, updateCategoria, deleteCategoria } = useCategories();
   const { transacoes } = useTransactions();
   const { compras, parcelas } = useCards();
-  const { settings, setSettings, openModal } = useAppContext();
+  const { settings, setSettings, openModal, modalState, setModalState, selectedMonth, setSelectedMonth } = useAppContext();
 
   const handleDeleteAllData = () => {
     // This would clear all localStorage data
@@ -100,13 +100,13 @@ export default function PerfilPageWrapper() {
       setSettings={setSettings}
       navigationState={null}
       clearNavigationState={() => {}}
-      modalState={{ modal: null, data: null }}
+      modalState={modalState}
       openModal={openModal}
-      closeModal={() => {}}
+      closeModal={() => setModalState({ modal: null, data: null })}
       selectedView="all"
       setSelectedView={() => {}}
-      selectedMonth=""
-      onMonthChange={() => {}}
+      selectedMonth={selectedMonth}
+      onMonthChange={setSelectedMonth}
     />
   );
 }

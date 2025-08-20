@@ -45,6 +45,7 @@ export interface Categoria {
   tipo: TipoCategoria;
   sistema: boolean;
   orcamento_mensal?: number | null;
+  ordem?: number; // ordem relativa dentro do próprio tipo (Entrada/Saída/Investimento)
   createdAt?: string;
   updatedAt?: string;
 }
