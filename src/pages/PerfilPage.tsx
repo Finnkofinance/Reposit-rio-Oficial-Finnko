@@ -54,9 +54,16 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
   const [dragOverPos, setDragOverPos] = useState<'before' | 'after' | null>(null);
   const [isDesktop, setIsDesktop] = useState<boolean>(() => typeof window !== 'undefined' ? window.matchMedia('(min-width: 768px)').matches : false);
   // Larguras das colunas (percentuais) para a tabela Categoria | Orçado | Realizado
-  const [colPerc, setColPerc] = useState<{ cat: number; orcado: number; realizado: number }>({ cat: 58.33, orcado: 16.67, realizado: 25 });
+  const [colPerc, setColPerc] = useState<{ cat: number; orcado: number; realizado: number }>(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? window.localStorage.getItem('catTableColPerc') : null;
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return { cat: 58.33, orcado: 16.67, realizado: 25 };
+  });
   const headerRef = React.useRef<HTMLDivElement | null>(null);
   const resizingRef = React.useRef<{ boundary: 1 | 2; startX: number; startPerc: { cat: number; orcado: number; realizado: number }; containerW: number } | null>(null);
+  const [movedRowId, setMovedRowId] = useState<string | null>(null);
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 768px)');
@@ -68,6 +75,13 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
       else mq.removeListener(handler as any);
     };
   }, []);
+
+  // Persist column widths
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('catTableColPerc', JSON.stringify(colPerc));
+    } catch {}
+  }, [colPerc]);
 
   // Resizable columns handlers
   const startResize = (boundary: 1 | 2, e: React.MouseEvent) => {
@@ -335,6 +349,8 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
                             updateCategoria({ ...c, ordem: newOrder });
                           }
                         });
+                        setMovedRowId(draggedCat.id);
+                        setTimeout(() => setMovedRowId(null), 800);
                         setDragOverId(null); setDragOverPos(null); setDraggingId(null);
                       }}
                     >
@@ -409,7 +425,7 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
                           return (
                             <div
                               key={`row-${c.id}`}
-                              className={`relative grid items-center p-2 rounded-lg bg-white dark:bg-gray-800 shadow-sm dark:shadow-none transition-colors ${draggingId === c.id ? 'opacity-50' : ''}`}
+                              className={`relative grid items-center p-2 rounded-lg bg-white dark:bg-gray-800 shadow-sm dark:shadow-none transition-all duration-200 ${draggingId === c.id ? 'opacity-50' : ''} ${movedRowId === c.id ? 'ring-2 ring-green-400' : ''}`}
                               style={{ gridTemplateColumns: `${colPerc.cat}% ${colPerc.orcado}% ${colPerc.realizado}%` }}
                               draggable
                               onDragStart={(ev) => {
@@ -430,6 +446,8 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
                                 let toIdx = toIdxBase; if (dragOverPos === 'after') toIdx = toIdxBase + 1;
                                 const arr = [...sameGroup]; const [moved] = arr.splice(fromIdx, 1); const insertIdx = fromIdx < toIdx ? toIdx - 1 : toIdx; arr.splice(insertIdx, 0, moved);
                                 arr.forEach((cg, i2) => { const newOrder = i2 + 1; if ((cg.ordem ?? 0) !== newOrder) updateCategoria({ ...cg, ordem: newOrder }); });
+                                setMovedRowId(dragged.id);
+                                setTimeout(() => setMovedRowId(null), 800);
                                 setDragOverId(null); setDragOverPos(null); setDraggingId(null);
                               }}
                               onDragEnd={() => { setDraggingId(null); setDragOverId(null); setDragOverPos(null); }}
