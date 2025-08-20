@@ -23,13 +23,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage }) => {
         <ul>
           {NAV_ITEMS.map((item) => (
             <li key={item.id} className="mb-2">
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleNavClick(item.id);
-                }}
-                className={`flex items-center space-x-3 p-2 rounded-md text-sm font-medium transition-colors ${
+              <button
+                type="button"
+                onClick={() => handleNavClick(item.id)}
+                className={`w-full text-left flex items-center space-x-3 p-2 rounded-md text-sm font-medium transition-colors ${
                   currentPage === item.id
                     ? 'bg-gradient-to-r from-[#19CF67] to-[#00DE5F] text-white'
                     : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
@@ -37,7 +34,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage }) => {
               >
                 {item.icon}
                 <span>{item.label}</span>
-              </a>
+              </button>
             </li>
           ))}
         </ul>

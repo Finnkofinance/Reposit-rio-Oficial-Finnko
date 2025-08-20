@@ -119,7 +119,15 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
     );
     
     const entradasMes = transacoesMes
-        .filter(t => t.tipo === TipoCategoria.Entrada || (t.tipo === TipoCategoria.Transferencia && !isDebitTransfer(t, transacoes) && !t.meta_pagamento))
+        .filter(t =>
+            t.tipo === TipoCategoria.Entrada ||
+            (
+              t.tipo === TipoCategoria.Transferencia &&
+              !isDebitTransfer(t, transacoes) &&
+              !t.meta_pagamento &&
+              !t.meta_saldo_inicial
+            )
+        )
         .reduce((sum, t) => sum + t.valor, 0);
         
     const saidasMes = transacoesMes

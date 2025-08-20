@@ -20,8 +20,6 @@ interface CartoesPageProps {
   addCartao: (cartao: Omit<Cartao, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateCartao: (cartao: Cartao) => void;
   deleteCartao: (id: string) => void;
-  addCompraCartao: (compra: Omit<CompraCartao, 'id' | 'createdAt' | 'updatedAt' | 'parcelas_total'>) => boolean;
-  updateCompraCartao: (compra: CompraCartao) => boolean;
   deleteCompraCartao: (id: string) => void;
   pagarFatura: (cartaoId: string, contaId: string, valor: number, data: string, competencia: string) => void;
   modalState: ModalState;
@@ -52,7 +50,7 @@ const getTodayString = () => new Date().toISOString().split('T')[0];
 const CartoesPage: React.FC<CartoesPageProps> = (props) => {
   const {
     cartoes, contas, categorias, compras, parcelas, transacoes,
-    addCartao, updateCartao, deleteCartao, addCompraCartao, updateCompraCartao, deleteCompraCartao, pagarFatura,
+    addCartao, updateCartao, deleteCartao, deleteCompraCartao, pagarFatura,
     modalState, openModal, closeModal, selectedView, setSelectedView, selectedMonth, onMonthChange,
     navigationState, clearNavigationState, setCurrentPage, setConfirmation
   } = props;
