@@ -13,10 +13,10 @@ interface KPICardProps {
 const KPICard: React.FC<KPICardProps> = ({ label, value, icon, projectedValue, projectedLabel }) => {
   const ICONS = {
     bank: <Landmark size={24} className="text-blue-500 dark:text-blue-400" />,
-    up: <ArrowUpCircle size={24} className="text-transparent bg-clip-text bg-gradient-to-r from-[#19CF67] to-[#00DE5F]" />,
+    up: <ArrowUpCircle size={24} className="text-green-500 dark:text-green-400" />,
     down: <ArrowDownCircle size={24} className="text-red-500 dark:text-red-400" />,
     card: <CreditCard size={24} className="text-purple-500 dark:text-purple-400" />,
-    invest: <PiggyBank size={24} className="text-transparent bg-clip-text bg-gradient-to-r from-[#19CF67] to-[#00DE5F]" />,
+    invest: <PiggyBank size={24} className="text-blue-500 dark:text-blue-400" />,
   };
 
   return (

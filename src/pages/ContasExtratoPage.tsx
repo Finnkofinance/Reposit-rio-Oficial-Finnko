@@ -389,7 +389,7 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
 
 
   return (
-    <div className="animate-fade-in flex flex-col h-full md:flex-row md:space-x-6">
+    <div className="animate-fade-in flex flex-col md:flex-row md:space-x-6">
       {/* Sidebar */}
       <div className="hidden md:flex flex-col w-64 flex-shrink-0">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-3 flex-col h-full flex shadow-sm dark:shadow-none border dark:border-transparent">
@@ -425,7 +425,7 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
       </div>
       
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col">
           <DatePeriodSelector 
             title="Bancos e Extrato"
             selectedMonth={selectedMonth} 
@@ -475,7 +475,7 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
             <KPICard label="Investimentos no Mês" value={kpisData.investimentosMes} icon="invest" />
           </div>
 
-          <div className="flex-1 bg-white dark:bg-gray-800 rounded-lg p-4 flex flex-col overflow-hidden shadow-sm dark:shadow-none border dark:border-transparent min-h-[70vh] md:min-h-0">
+          <div className="flex-1 bg-white dark:bg-gray-800 rounded-lg p-4 flex flex-col shadow-sm dark:shadow-none border dark:border-transparent min-h-[70vh] md:min-h-0">
             <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 gap-3">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Histórico de Operações {selectedView !== 'all' ? `(${contas.find(c => c.id === selectedView)?.nome || ''})` : '(Todas)'}

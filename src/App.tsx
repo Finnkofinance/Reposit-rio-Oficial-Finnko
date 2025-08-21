@@ -188,39 +188,13 @@ const Layout = () => {
 
     // Transaction and card handlers
     const handleNewTransactionClick = () => {
-        if (contas.length > 0) {
-            openModal('nova-transacao');
-        } else {
-            setConfirmation({
-                title: 'Nenhuma Conta Cadastrada',
-                message: 'Você ainda não tem uma conta cadastrada. Cadastre agora!',
-                buttons: [
-                    { label: 'Depois', onClick: () => setConfirmation(null), style: 'secondary' },
-                    { label: 'Cadastrar Conta', onClick: () => {
-                        setConfirmation(null);
-                        navigate('/app/contas');
-                    }, style: 'primary' },
-                ]
-            });
-        }
+        // Abrir modal diretamente, independente de existirem contas
+        openModal('nova-transacao');
     };
 
     const handleNewCardPurchaseClick = () => {
-        if (cartoes.length > 0) {
-            openModal('nova-compra-cartao');
-        } else {
-            setConfirmation({
-                title: 'Nenhum Cartão Cadastrado',
-                message: 'Você ainda não tem um cartão de crédito cadastrado. Cadastre agora!',
-                buttons: [
-                    { label: 'Depois', onClick: () => setConfirmation(null), style: 'secondary' },
-                    { label: 'Cadastrar Cartão', onClick: () => {
-                        setConfirmation(null);
-                        navigate('/app/cartoes');
-                    }, style: 'primary' },
-                ]
-            });
-        }
+        // Abrir modal diretamente, independente de existirem cartões
+        openModal('nova-compra-cartao');
     };
 
     // Handle transaction operations
