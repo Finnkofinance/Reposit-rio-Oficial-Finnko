@@ -3,8 +3,9 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    }
+    // Usa padrão somente para "@/" evitando colisão com pacotes escopados como "@supabase/*"
+    alias: [
+      { find: /^@\//, replacement: path.resolve(__dirname, './src') + '/' },
+    ]
   }
 });
