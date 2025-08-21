@@ -19,6 +19,7 @@ import SearchModal from '@/components/SearchModal';
 
 // Context
 import { AppProvider } from '@/context/AppContext';
+import { AuthProvider } from '@/features/auth/AuthProvider';
 
 // Types and Utils
 import { ModalState, TransacaoBanco } from '@/types/types';
@@ -40,6 +41,9 @@ import InvestimentosPageWrapper from '@/pages/InvestimentosPageWrapper';
 import PerfilPageWrapper from '@/pages/PerfilPageWrapper';
 import CalculadoraJurosCompostosPageWrapper from '@/pages/CalculadoraJurosCompostosPageWrapper';
 import CalculadoraReservaEmergenciaPageWrapper from '@/pages/CalculadoraReservaEmergenciaPageWrapper';
+import LandingPage from '@/pages/LandingPage';
+import AuthPage from '@/pages/AuthPage';
+import { useAuth } from '@/features/auth/AuthProvider';
 
 // CSV Import Types
 type CsvTransaction = { data: string; descricao: string; valor: number; originalLine: any };
@@ -59,6 +63,9 @@ const Layout = () => {
     
     // Get current page from URL path
     const getCurrentPageFromPath = (pathname: string): string => {
+        // Suporta rotas sob "/app/*" e diretas
+        const cleaned = pathname.startsWith('/app') ? pathname.replace(/^\/app/, '') : pathname;
+        const path = cleaned === '' ? '/' : cleaned;
         const pathMap: Record<string, string> = {
             '/': 'resumo',
             '/resumo': 'resumo',
@@ -71,7 +78,7 @@ const Layout = () => {
             '/calculadora-juros-compostos': 'calculadora-juros-compostos',
             '/calculadora-reserva-emergencia': 'calculadora-reserva-emergencia'
         };
-        return pathMap[pathname] || 'resumo';
+        return pathMap[path] || 'resumo';
     };
 
     const currentPage = getCurrentPageFromPath(location.pathname);
@@ -133,16 +140,17 @@ const Layout = () => {
     // Navigation function
     const setCurrentPage = (page: string) => {
         const routeMap: Record<string, string> = {
-            'resumo': '/',
-            'contas-extrato': '/contas',
-            'fluxo': '/fluxo',
-            'cartoes': '/cartoes',
-            'investimentos': '/investimentos',
-            'perfil': '/perfil',
-            'calculadora-juros-compostos': '/calculadora-juros-compostos',
-            'calculadora-reserva-emergencia': '/calculadora-reserva-emergencia'
+            'resumo': '/app/resumo',
+            'contas-extrato': '/app/contas',
+            'fluxo': '/app/fluxo',
+            'cartoes': '/app/cartoes',
+            'investimentos': '/app/investimentos',
+            'perfil': '/app/perfil',
+            'categorias-nav': '/app/perfil',
+            'calculadora-juros-compostos': '/app/calculadora-juros-compostos',
+            'calculadora-reserva-emergencia': '/app/calculadora-reserva-emergencia'
         };
-        navigate(routeMap[page] || '/');
+        navigate(routeMap[page] || '/app/resumo');
     };
 
     // Modal functions
@@ -183,7 +191,7 @@ const Layout = () => {
                     { label: 'Depois', onClick: () => setConfirmation(null), style: 'secondary' },
                     { label: 'Cadastrar Conta', onClick: () => {
                         setConfirmation(null);
-                        navigate('/contas');
+                        navigate('/app/contas');
                     }, style: 'primary' },
                 ]
             });
@@ -201,7 +209,7 @@ const Layout = () => {
                     { label: 'Depois', onClick: () => setConfirmation(null), style: 'secondary' },
                     { label: 'Cadastrar Cartão', onClick: () => {
                         setConfirmation(null);
-                        navigate('/cartoes');
+                        navigate('/app/cartoes');
                     }, style: 'primary' },
                 ]
             });
@@ -397,12 +405,46 @@ const Layout = () => {
 
 
 // Create new router with layout
+// Public routes (landing + auth)
+const publicRoutes = {
+    path: '/',
+    element: <LandingPage />,
+};
+
+// Guard para rotas protegidas (usa sessão real do Supabase)
+const AppGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const { session, loading } = useAuth();
+    const demoAllowed = (() => {
+        try { return window.localStorage.getItem('demo:allow') === 'true'; } catch { return false; }
+    })();
+    if (loading) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-gray-100 dark:bg-gradient-to-b dark:from-gray-900 dark:to-black">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#19CF67] mx-auto mb-4"></div>
+                    <p className="text-gray-600 dark:text-gray-300">Verificando sessão…</p>
+                </div>
+            </div>
+        );
+    }
+    if (!session && !demoAllowed) return <AuthPage />;
+    return <>{children}</>;
+};
+
 const routerWithLayout = createBrowserRouter([
+    publicRoutes,
     {
-        path: '/',
-        element: <Layout />,
+        path: '/auth',
+        element: <AuthPage />,
+    },
+    {
+        path: '/app',
+        element: (
+            <AppGuard>
+                <Layout />
+            </AppGuard>
+        ),
         children: [
-            { index: true, element: <ResumoPageWrapper /> },
             { path: 'resumo', element: <ResumoPageWrapper /> },
             { path: 'contas', element: <ContasExtratoPageWrapper /> },
             { path: 'contas-extrato', element: <ContasExtratoPageWrapper /> },
@@ -413,9 +455,9 @@ const routerWithLayout = createBrowserRouter([
             { path: 'calculadora-juros-compostos', element: <CalculadoraJurosCompostosPageWrapper /> },
             { path: 'calculadora-reserva-emergencia', element: <CalculadoraReservaEmergenciaPageWrapper /> },
             { path: 'configuracoes', element: <div className="text-center p-8"><h1 className="text-2xl">Configurações - Em breve</h1></div> },
-            { path: '*', element: <div className="text-center p-8"><h1 className="text-2xl">Página não encontrada</h1></div> },
         ]
-    }
+    },
+    { path: '*', element: <div className="text-center p-8"><h1 className="text-2xl">Página não encontrada</h1></div> },
 ]);
 
 const App: React.FC = () => {
@@ -428,7 +470,9 @@ const App: React.FC = () => {
                 </div>
             </div>
         }>
-            <RouterProvider router={routerWithLayout} />
+            <AuthProvider>
+                <RouterProvider router={routerWithLayout} />
+            </AuthProvider>
         </Suspense>
     );
 };
