@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 // Import da imagem do hero (salve a imagem anexada como src/assets/hero-landing.jpg)
 // Vite cuidará do asset bundling
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -70,18 +69,16 @@ const Hero: React.FC = () => {
             </div>
             <div className="mt-6 text-sm text-gray-500">+200k usuários • Nota 4.9/5</div>
           </div>
-          <AnimatePresence>
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="relative">
-              <div className="rounded-2xl overflow-hidden ring-1 ring-gray-200 shadow-2xl">
-                <img
-                  src={heroImg}
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?q=80&w=1600&auto=format&fit=crop'; }}
-                  alt="Hero"
-                  className="w-full h-[320px] md:h-[420px] object-cover"
-                />
-              </div>
-            </motion.div>
-          </AnimatePresence>
+          <div className="relative transition-opacity duration-700 ease-out">
+            <div className="rounded-2xl overflow-hidden ring-1 ring-gray-200 shadow-2xl">
+              <img
+                src={heroImg}
+                onError={(e) => { (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?q=80&w=1600&auto=format&fit=crop'; }}
+                alt="Hero"
+                className="w-full h-[320px] md:h-[420px] object-cover"
+              />
+            </div>
+          </div>
         </div>
       </div>
     </section>
