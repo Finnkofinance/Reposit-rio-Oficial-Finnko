@@ -37,7 +37,7 @@ interface InvestimentosPageProps {
 }
 
 const InvestimentosPage: React.FC<InvestimentosPageProps> = (props) => {
-    const [activeTab, setActiveTab] = useState<'objetivos' | 'visao-geral' | 'meus-ativos'>('objetivos');
+    const [activeTab, setActiveTab] = useState<'objetivos' | 'visao-geral' | 'meus-ativos'>('visao-geral');
     
     // Unified modal state
     const [modal, setModal] = useState<{ type: string, data?: any } | null>(null);
@@ -88,8 +88,8 @@ const InvestimentosPage: React.FC<InvestimentosPageProps> = (props) => {
             </div>
 
             <div className="flex space-x-2 bg-gray-100 dark:bg-gray-900/50 p-1 rounded-lg">
-                <button onClick={() => setActiveTab('objetivos')} className={tabButtonClasses('objetivos')}>Objetivos</button>
                 <button onClick={() => setActiveTab('visao-geral')} className={tabButtonClasses('visao-geral')}>Visão Geral</button>
+                <button onClick={() => setActiveTab('objetivos')} className={tabButtonClasses('objetivos')}>Objetivos</button>
                 <button onClick={() => setActiveTab('meus-ativos')} className={tabButtonClasses('meus-ativos')}>Meus Ativos</button>
             </div>
             

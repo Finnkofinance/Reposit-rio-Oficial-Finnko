@@ -315,17 +315,17 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
     <div className="animate-fade-in flex flex-col h-full md:flex-row md:space-x-6">
         <div className="hidden md:flex flex-col w-64 flex-shrink-0">
             <div className="bg-white dark:bg-gray-800 rounded-lg p-3 h-full flex flex-col shadow-sm dark:shadow-none border dark:border-transparent">
-                <div className="flex-grow space-y-2 overflow-y-auto no-scrollbar">
+                <div className="space-y-2">
                     {CATEGORY_FILTERS.map(filter => (
                         <button key={filter.id} onClick={() => setSelectedFilter(filter.id as any)} className={`w-full text-left p-3 rounded-lg flex items-center space-x-3 transition-colors ${selectedFilter === filter.id ? 'bg-green-500 text-white font-semibold' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50'}`}>
                            <span>{filter.label}</span>
                         </button>
                     ))}
-                </div>
-                <div className="pt-3 mt-auto border-t border-gray-200 dark:border-gray-700/50">
-                    <button onClick={() => openModal('nova-categoria')} className="w-full text-center p-2 rounded-lg flex items-center justify-center space-x-2 transition-colors bg-gray-100 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-white opacity-80 dark:opacity-70 hover:opacity-100">
-                        <Plus size={16} /><span>Nova Categoria</span>
-                    </button>
+                    <div className="pt-3 border-t border-gray-200 dark:border-gray-700/50">
+                        <button onClick={() => openModal('nova-categoria')} className="w-full text-center p-2 rounded-lg flex items-center justify-center space-x-2 transition-colors bg-gray-100 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-white opacity-80 dark:opacity-70 hover:opacity-100">
+                            <Plus size={16} /><span>Nova Categoria</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
