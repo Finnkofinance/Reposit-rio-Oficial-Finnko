@@ -1,21 +1,63 @@
 import { TransacaoBanco, Categoria, TipoCategoria } from '@/types/types';
+import { supabase } from '@/lib/supabaseClient';
 
 export const transactionsService = {
-  getAll: (): TransacaoBanco[] => {
+  // Busca transações (logado → Supabase; senão, localStorage)
+  getAll: async (): Promise<TransacaoBanco[]> => {
     try {
+      const { data: auth } = await supabase.auth.getSession();
+      if (auth.session?.user) {
+        const { data, error } = await supabase
+          .from('transacoes_banco')
+          .select(`
+            id, conta_id, data, valor, categoria_id, tipo, descricao,
+            transferencia_par_id, previsto, realizado,
+            cartao_id, competencia_fatura, meta_pagamento, meta_saldo_inicial,
+            recorrencia, recorrencia_id, objetivo_id,
+            created_at, updated_at
+          `)
+          .order('data', { ascending: true });
+        if (error) throw error;
+        return (data || []) as unknown as TransacaoBanco[];
+      }
       const item = window.localStorage.getItem('transacoes');
       return item ? JSON.parse(item) : [];
     } catch (error) {
-      console.error('Error reading transactions from localStorage:', error);
+      console.error('Error reading transactions:', error);
       return [];
     }
   },
 
-  save: (transacoes: TransacaoBanco[]): void => {
+  save: async (transacoes: TransacaoBanco[]): Promise<void> => {
     try {
+      const { data: auth } = await supabase.auth.getSession();
+      if (auth.session?.user) {
+        const payload = transacoes.map(t => ({
+          id: t.id,
+          conta_id: t.conta_id,
+          data: t.data,
+          valor: t.valor,
+          categoria_id: t.categoria_id,
+          tipo: t.tipo,
+          descricao: t.descricao,
+          transferencia_par_id: t.transferencia_par_id ?? null,
+          previsto: !!t.previsto,
+          realizado: !!t.realizado,
+          cartao_id: t.cartao_id ?? null,
+          competencia_fatura: t.competencia_fatura ?? null,
+          meta_pagamento: !!t.meta_pagamento,
+          meta_saldo_inicial: !!t.meta_saldo_inicial,
+          recorrencia: t.recorrencia ?? null,
+          recorrencia_id: t.recorrencia_id ?? null,
+          objetivo_id: t.objetivo_id ?? null,
+        }));
+        const { error } = await supabase.from('transacoes_banco').upsert(payload, { onConflict: 'id' });
+        if (error) throw error;
+        return;
+      }
       window.localStorage.setItem('transacoes', JSON.stringify(transacoes));
     } catch (error) {
-      console.error('Error saving transactions to localStorage:', error);
+      console.error('Error saving transactions:', error);
     }
   },
 

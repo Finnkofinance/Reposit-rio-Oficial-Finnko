@@ -10,6 +10,7 @@ import { TransactionsProvider } from '@/context/transactions/TransactionsContext
 import { CardsProvider } from '@/context/cards/CardsContext';
 import { InvestmentsProvider } from '@/context/investments/InvestmentsContext';
 import { CategoriesProvider } from '@/context/categories/CategoriesContext';
+import { AuthProvider } from '@/features/auth/AuthProvider';
 
 // App Layout Component
 import App from '@/App';
@@ -22,16 +23,18 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <CategoriesProvider>
-      <AccountsProvider>
-        <TransactionsProvider>
-          <CardsProvider>
-            <InvestmentsProvider>
-              <App />
-            </InvestmentsProvider>
-          </CardsProvider>
-        </TransactionsProvider>
-      </AccountsProvider>
-    </CategoriesProvider>
+    <AuthProvider>
+      <CategoriesProvider>
+        <AccountsProvider>
+          <TransactionsProvider>
+            <CardsProvider>
+              <InvestmentsProvider>
+                <App />
+              </InvestmentsProvider>
+            </CardsProvider>
+          </TransactionsProvider>
+        </AccountsProvider>
+      </CategoriesProvider>
+    </AuthProvider>
   </React.StrictMode>
 );

@@ -1,6 +1,8 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Page } from '@/types/types';
-import { User, Pencil, Calendar, Search, Menu, Camera, Trash2, Settings, TrendingUp, Shield, Sun, Moon, BarChartBig, Upload } from 'lucide-react';
+import { User, Pencil, Calendar, Search, Menu, Camera, Trash2, Settings, TrendingUp, Shield, Sun, Moon, BarChartBig, Upload, LogOut } from 'lucide-react';
+import { useAuth } from '@/features/auth/AuthProvider';
+import { useNavigate } from 'react-router-dom';
 
 interface HeaderProps {
   setCurrentPage: (page: Page, state?: { viewId: string; }) => void;
@@ -18,6 +20,8 @@ const Header: React.FC<HeaderProps> = ({ setCurrentPage, profilePicture, onImage
   const calcMenuRef = useRef<HTMLDivElement>(null);
   const [isEditMenuOpen, setIsEditMenuOpen] = useState(false);
   const editMenuRef = useRef<HTMLDivElement>(null);
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
 
 
   const handleProfileClick = () => {
@@ -195,6 +199,11 @@ const Header: React.FC<HeaderProps> = ({ setCurrentPage, profilePicture, onImage
                                 <Shield size={16} />
                                 <span>Calculadora de Reserva de Emergência</span>
                             </a>
+                            <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                            <button onClick={async () => { await signOut(); setIsCalcMenuOpen(false); try { window.localStorage.removeItem('demo:allow'); } catch {} navigate('/'); }} className="flex items-center space-x-3 w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <LogOut size={16} />
+                                <span>Sair da conta</span>
+                            </button>
                         </div>
                     </div>
                 )}

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Categoria } from '@/types/types';
 import { categoriesService } from '@/services/categoriesService';
+import { useAuth } from '@/features/auth/AuthProvider';
 
 interface CategoriesContextType {
   categorias: Categoria[];
@@ -19,27 +20,37 @@ interface CategoriesProviderProps {
 
 export const CategoriesProvider: React.FC<CategoriesProviderProps> = ({ children }) => {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [initialLoaded, setInitialLoaded] = useState(false);
+  const { user, loading } = useAuth();
 
   // Load categories from localStorage on mount
+  // Carregar quando auth resolver (demo: user=null; logado: user.id)
   useEffect(() => {
-    const loadedCategorias = categoriesService.getAll();
-    setCategorias(loadedCategorias);
-  }, []);
+    if (loading) return;
+    (async () => {
+      const loaded = await categoriesService.getAll();
+      setCategorias(Array.isArray(loaded) ? loaded : []);
+      setInitialLoaded(true);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, user?.id]);
 
   // Save to localStorage whenever categorias change
+  // Salvar após carga inicial, evitando sobrescrever remoto com vazio
   useEffect(() => {
-    if (categorias.length >= 0) {
-      categoriesService.save(categorias);
-    }
-  }, [categorias]);
+    if (!initialLoaded) return;
+    (async () => {
+      await categoriesService.save(categorias);
+    })();
+  }, [categorias, initialLoaded]);
 
-  const addCategoria = (cat: Omit<Categoria, 'id' | 'createdAt' | 'updatedAt' | 'sistema'>) => {
-    const newCat = categoriesService.create(cat);
+  const addCategoria = async (cat: Omit<Categoria, 'id' | 'createdAt' | 'updatedAt' | 'sistema'>) => {
+    const newCat = await categoriesService.create(cat);
     setCategorias(prev => [...prev, newCat]);
   };
 
-  const updateCategoria = (cat: Categoria) => {
-    const updatedCat = categoriesService.update(cat);
+  const updateCategoria = async (cat: Categoria) => {
+    const updatedCat = await categoriesService.update(cat);
     setCategorias(prev => prev.map(c => c.id === cat.id ? updatedCat : c));
   };
 

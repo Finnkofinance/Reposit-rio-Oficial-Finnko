@@ -6,7 +6,7 @@ type AuthContextType = {
   user: any;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, metadata?: Record<string, any>) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -32,12 +32,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => { mounted = false; sub.subscription?.unsubscribe(); };
   }, []);
 
+  // Seed: cria categorias/config padrão no primeiro login do usuário
+  useEffect(() => {
+    const seedIfNeeded = async () => {
+      try {
+        if (!user) return;
+        await supabase.rpc('create_default_categories', { target_user_id: user.id });
+      } catch (err) {
+        // silencioso: se já existir, a função retorna rápido
+        // console.warn('Seed categorias já existe ou falhou:', err);
+      }
+    };
+    seedIfNeeded();
+  }, [user]);
+
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
   };
-  const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password });
+  const signUp = async (email: string, password: string, metadata?: Record<string, any>) => {
+    const { error } = await supabase.auth.signUp({ email, password, options: { data: metadata || {} } });
     if (error) throw error;
   };
   const signOut = async () => { await supabase.auth.signOut(); };

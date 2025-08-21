@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { ContaBancaria } from '@/types/types';
 import { accountsService } from '@/services/accountsService';
+import { useAuth } from '@/features/auth/AuthProvider';
 
 interface AccountsContextType {
   contas: ContaBancaria[];
@@ -18,19 +19,26 @@ interface AccountsProviderProps {
 
 export const AccountsProvider: React.FC<AccountsProviderProps> = ({ children }) => {
   const [contas, setContas] = useState<ContaBancaria[]>([]);
+  const [initialLoaded, setInitialLoaded] = useState(false);
+  const { user, loading } = useAuth();
 
   // Load accounts from localStorage on mount
   useEffect(() => {
-    const loadedContas = accountsService.getAll();
-    setContas(loadedContas);
-  }, []);
+    if (loading) return;
+    (async () => {
+      const loadedContas = await accountsService.getAll();
+      setContas(Array.isArray(loadedContas) ? loadedContas : []);
+      setInitialLoaded(true);
+    })();
+  }, [loading, user?.id]);
 
   // Save to localStorage whenever contas change
   useEffect(() => {
-    if (contas.length >= 0) { // Allow empty array to be saved
-      accountsService.save(contas);
-    }
-  }, [contas]);
+    if (!initialLoaded) return;
+    (async () => {
+      await accountsService.save(contas);
+    })();
+  }, [contas, initialLoaded]);
 
   const addConta = (contaData: { nome: string; saldo_inicial: number; ativo: boolean; data_inicial: string; cor: string; }): ContaBancaria | null => {
     try {

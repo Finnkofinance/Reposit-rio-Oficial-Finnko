@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { TransacaoBanco, Categoria } from '@/types/types';
 import { transactionsService } from '@/services/transactionsService';
+import { useAuth } from '@/features/auth/AuthProvider';
 
 interface TransactionsContextType {
   transacoes: TransacaoBanco[];
@@ -26,19 +27,26 @@ interface TransactionsProviderProps {
 
 export const TransactionsProvider: React.FC<TransactionsProviderProps> = ({ children }) => {
   const [transacoes, setTransacoes] = useState<TransacaoBanco[]>([]);
+  const [initialLoaded, setInitialLoaded] = useState(false);
+  const { user, loading } = useAuth();
 
-  // Load transactions from localStorage on mount
+  // Load transactions (Supabase ou local) on mount
   useEffect(() => {
-    const loadedTransacoes = transactionsService.getAll();
-    setTransacoes(loadedTransacoes);
-  }, []);
+    if (loading) return;
+    (async () => {
+      const loadedTransacoes = await transactionsService.getAll();
+      setTransacoes(Array.isArray(loadedTransacoes) ? loadedTransacoes : []);
+      setInitialLoaded(true);
+    })();
+  }, [loading, user?.id]);
 
-  // Save to localStorage whenever transacoes change
+  // Save (Supabase ou local) whenever transacoes change
   useEffect(() => {
-    if (transacoes.length >= 0) { // Allow empty array to be saved
-      transactionsService.save(transacoes);
-    }
-  }, [transacoes]);
+    if (!initialLoaded) return;
+    (async () => {
+      await transactionsService.save(transacoes);
+    })();
+  }, [transacoes, initialLoaded]);
 
   const addTransacao = (transacaoData: Omit<TransacaoBanco, 'id' | 'createdAt' | 'updatedAt' | 'tipo'>, categoria: Categoria) => {
     const newTransacao = transactionsService.create(transacaoData, categoria);

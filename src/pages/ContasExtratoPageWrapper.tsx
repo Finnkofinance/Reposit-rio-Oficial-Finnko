@@ -26,14 +26,14 @@ export default function ContasExtratoPageWrapper() {
         conta_id: newConta.id,
         data: contaData.data_inicial,
         valor: contaData.saldo_inicial,
-        categoria_id: 't3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e71', // Saldo Inicial
+        categoria_id: (categorias.find(c => c.sistema && c.tipo === TipoCategoria.Transferencia && c.nome === 'Saldo Inicial')?.id) || 'unknown',
         descricao: 'Saldo inicial da conta',
         previsto: false,
         realizado: true,
         meta_saldo_inicial: true,
       };
       
-      const categoria = categorias.find(c => c.id === 't3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e71');
+      const categoria = categorias.find(c => c.sistema && c.tipo === TipoCategoria.Transferencia && c.nome === 'Saldo Inicial');
       if (categoria) {
         addTransacao(initialTx, categoria);
       } else {
@@ -43,7 +43,7 @@ export default function ContasExtratoPageWrapper() {
           conta_id: newConta.id,
           data: contaData.data_inicial,
           valor: contaData.saldo_inicial,
-          categoria_id: 't3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e71',
+          categoria_id: 'unknown',
           tipo: TipoCategoria.Transferencia,
           descricao: 'Saldo inicial da conta',
           previsto: false,

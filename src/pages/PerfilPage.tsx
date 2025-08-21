@@ -208,6 +208,22 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
     }
   }, [isModalOpen, modalState.data]);
 
+  const isEditingInUse = React.useMemo(() => {
+    if (!editingCategoria) return false;
+    const usedInTx = props.transacoes.some(t => t.categoria_id === editingCategoria.id);
+    const usedInCompras = props.compras.some(c => c.categoria_id === editingCategoria.id);
+    return usedInTx || usedInCompras;
+  }, [editingCategoria, props.transacoes, props.compras]);
+
+  const handleDeleteEditingCategoria = () => {
+    if (!editingCategoria) return;
+    if (isEditingInUse) return; // segurança extra
+    const ok = window.confirm(`Excluir a categoria "${editingCategoria.nome}"? Esta ação não pode ser desfeita.`);
+    if (!ok) return;
+    deleteCategoria(editingCategoria.id);
+    closeModal();
+  };
+
   const handleOpenEditModal = (categoria: Categoria) => {
     openModal('editar-categoria', { categoria });
   };
@@ -428,7 +444,7 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
                           return (
                             <div
                               key={`row-${c.id}`}
-                              className={`relative grid items-center p-2 rounded-lg bg-white dark:bg-gray-800 shadow-sm dark:shadow-none transition-all duration-200 ${draggingId === c.id ? 'opacity-50' : ''} ${movedRowId === c.id ? 'ring-2 ring-green-400' : ''}`}
+                              className={`relative grid items-center p-2 rounded-lg bg-white dark:bg-gray-800 shadow-sm dark:shadow-none transition-all duration-200 ${draggingId === c.id ? 'opacity-50' : ''} ${movedRowId === c.id ? 'ring-2 ring-green-400' : ''} cursor-pointer md:cursor-default`}
                               style={{ gridTemplateColumns: `${colPerc.cat}% ${colPerc.orcado}% ${colPerc.realizado}%` }}
                               draggable
                               onDragStart={(ev) => {
@@ -454,6 +470,7 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
                                 setDragOverId(null); setDragOverPos(null); setDraggingId(null);
                               }}
                               onDragEnd={() => { setDraggingId(null); setDragOverId(null); setDragOverPos(null); }}
+                              onClick={() => { if (!isDesktop) handleOpenEditModal(c); }}
                             >
                               {dragOverId === c.id && dragOverPos === 'before' && (<div className="absolute left-0 right-0 -top-1 h-1 bg-green-500 rounded-full" />)}
                               {dragOverId === c.id && dragOverPos === 'after' && (<div className="absolute left-0 right-0 -bottom-1 h-1 bg-green-500 rounded-full" />)}
@@ -461,12 +478,12 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
                               {/* Coluna Categoria */}
                               <div className="pr-2 flex items-center justify-between">
                                 <div className="flex items-center space-x-3">
-                                  <span className="cursor-grab active:cursor-grabbing text-gray-400" title="Arrastar para reordenar"><GripVertical size={16} /></span>
+                                  <span className="hidden md:inline-block cursor-grab active:cursor-grabbing text-gray-400" title="Arrastar para reordenar"><GripVertical size={16} /></span>
                                   {getCategoryIcon(c.tipo)}
                                   <span className="text-gray-900 dark:text-white">{c.nome}</span>
                                   {c.sistema && <span title="Categoria de sistema"><Lock size={14} className="text-yellow-500 dark:text-yellow-400" /></span>}
                                 </div>
-                                <div className="flex items-center space-x-4">
+                                <div className="hidden md:flex items-center space-x-4">
                                   <button onClick={() => handleOpenEditModal(c)} className="text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400" aria-label={`Editar categoria ${c.nome}`}><Pencil size={18} /></button>
                                   <button onClick={() => deleteCategoria(c.id)} disabled={isProtected} className={`transition-colors ${isProtected ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed' : 'text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400'}`} aria-label={`Excluir categoria ${c.nome}`}><Trash2 size={18} /></button>
                                 </div>
@@ -491,6 +508,17 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
             title={editingCategoria ? 'Editar Categoria' : 'Adicionar Nova Categoria'}
             footer={
                 <>
+                    {editingCategoria && !editingCategoria.sistema && (
+                        <button 
+                          type="button" 
+                          onClick={handleDeleteEditingCategoria} 
+                          disabled={isEditingInUse}
+                          title={isEditingInUse ? 'Não é possível excluir: existem transações ou compras vinculadas.' : 'Excluir categoria'}
+                          className={`mr-auto font-bold py-2 px-4 rounded-lg transition-colors ${isEditingInUse ? 'bg-red-400/40 text-white cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'}`}
+                        >
+                          Excluir
+                        </button>
+                    )}
                     <button onClick={closeModal} className="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white font-bold py-2 px-4 rounded-lg transition-colors">Cancelar</button>
                     <button type="submit" form="categoria-form" className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">Salvar</button>
                 </>
@@ -520,6 +548,9 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
                              {tipo === TipoCategoria.Saida ? 'Orçamento Mensal (Opcional)' : 'Meta Mensal (Opcional)'}
                         </label>
                         <CurrencyInput value={orcamento} onValueChange={setOrcamento} placeholder="R$ 0,00" className="w-full bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"/>
+                        {editingCategoria && !editingCategoria.sistema && isEditingInUse && (
+                          <p className="mt-2 text-xs text-red-500">Esta categoria possui lançamentos vinculados e não pode ser excluída.</p>
+                        )}
                     </div>
                 )}
             </form>
