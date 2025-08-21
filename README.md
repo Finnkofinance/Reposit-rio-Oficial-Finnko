@@ -59,8 +59,8 @@ src/
 ## 🛠️ Setup e Instalação
 
 ### Pré-requisitos
-- Node.js (versão 16 ou superior)
-- npm ou yarn
+- Node 20 (arquivo `.nvmrc` incluso)
+- npm 10+
 
 ### Instalação
 
@@ -72,7 +72,8 @@ src/
 
 2. **Instale as dependências**
    ```bash
-   npm install
+   nvm use || (nvm install 20 && nvm use)
+   npm ci
    ```
 
 3. **Execute o projeto**
