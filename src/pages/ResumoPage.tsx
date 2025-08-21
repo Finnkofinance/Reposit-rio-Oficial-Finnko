@@ -1,4 +1,5 @@
 import React, { useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { TransacaoBanco, Categoria, TipoCategoria, ContaBancaria, Cartao, CompraCartao, ParcelaCartao, Page, NavigationState, Settings } from '@/types/types';
 import { calculateSaldo, formatCurrency } from '@/utils/format';
 import { Page as PageType } from '@/types/types';
@@ -28,6 +29,7 @@ export default function ResumoPage({
     setCurrentPage, openModal, selectedMonth, onMonthChange, settings 
 }: ResumoPageProps) {
     
+  const navigate = useNavigate();
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const getMonthData = useCallback((month: string) => {
@@ -163,14 +165,14 @@ export default function ResumoPage({
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <button
-              onClick={() => setCurrentPage('contas-extrato', { action: 'open-add-modal' })}
+              onClick={() => navigate('/app/contas')}
               className="flex items-center justify-center space-x-2 w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg transition-colors"
             >
               <Landmark size={20} />
               <span>Adicionar Conta</span>
             </button>
             <button
-              onClick={() => setCurrentPage('cartoes', { action: 'open-add-modal' })}
+              onClick={() => navigate('/app/cartoes')}
               className="flex items-center justify-center space-x-2 w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-6 rounded-lg transition-colors"
             >
               <CreditCard size={20} />

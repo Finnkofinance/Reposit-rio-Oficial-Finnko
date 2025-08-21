@@ -83,16 +83,16 @@ export const AppProvider: React.FC<AppProviderProps> = ({
 
   const setCurrentPage = (page: string, state?: any) => {
     const routeMap: Record<string, string> = {
-      'resumo': '/',
-      'contas-extrato': '/contas',
-      'fluxo': '/fluxo',
-      'cartoes': '/cartoes',
-      'investimentos': '/investimentos',
-      'perfil': '/perfil',
-      'calculadora-juros-compostos': '/calculadora-juros-compostos',
-      'calculadora-reserva-emergencia': '/calculadora-reserva-emergencia'
+      'resumo': '/app/resumo',
+      'contas-extrato': '/app/contas',
+      'fluxo': '/app/fluxo',
+      'cartoes': '/app/cartoes',
+      'investimentos': '/app/investimentos',
+      'perfil': '/app/perfil',
+      'calculadora-juros-compostos': '/app/calculadora-juros-compostos',
+      'calculadora-reserva-emergencia': '/app/calculadora-reserva-emergencia'
     };
-    navigate(routeMap[page] || '/');
+    navigate(routeMap[page] || '/app/resumo', { state });
   };
 
   const openModal = (modal: string, data?: any) => {

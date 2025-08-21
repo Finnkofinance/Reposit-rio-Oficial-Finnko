@@ -1,5 +1,5 @@
 import React, { useState, useEffect, Suspense } from 'react';
-import { RouterProvider, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { RouterProvider, Outlet, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import Papa from 'papaparse';
 
 // Components
@@ -60,6 +60,13 @@ type CsvImportState = {
 const Layout = () => {
     const location = useLocation();
     const navigate = useNavigate();
+    // Normaliza URLs sem prefixo para as rotas corretas sob /app
+    React.useEffect(() => {
+        const p = location.pathname;
+        if (p === '/contas') navigate('/app/contas', { replace: true });
+        else if (p === '/cartoes') navigate('/app/cartoes', { replace: true });
+        else if (p === '/resumo' || p === '/') navigate('/app/resumo', { replace: true });
+    }, [location.pathname, navigate]);
     
     // Get current page from URL path
     const getCurrentPageFromPath = (pathname: string): string => {
@@ -437,6 +444,10 @@ const routerWithLayout = createBrowserRouter([
         path: '/auth',
         element: <AuthPage />,
     },
+    // Fallbacks: aceitar URLs antigas sem prefixo e redirecionar para /app
+    { path: '/contas', element: <Navigate to="/app/contas" replace /> },
+    { path: '/cartoes', element: <Navigate to="/app/cartoes" replace /> },
+    { path: '/resumo', element: <Navigate to="/app/resumo" replace /> },
     {
         path: '/app',
         element: (
