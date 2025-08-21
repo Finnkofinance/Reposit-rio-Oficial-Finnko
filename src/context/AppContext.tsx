@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, ModalState, ConfirmationModalData } from '@/types/types';
+import { Settings, ModalState } from '@/types/types';
+import { ConfirmationModalData } from '@/components/ConfirmationModal';
 
 interface AppContextType {
   // UI State

@@ -32,7 +32,7 @@ interface SearchModalProps {
 }
 
 const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, searchTerm, onSearchTermChange, results, onResultClick }) => {
-  const hasResults = Object.values(results).some(arr => arr.length > 0);
+  const hasResults = Object.values(results).some((arr: any[]) => arr.length > 0);
 
   const renderResultItem = (item: any, type: 'conta' | 'cartao' | 'transacao' | 'compra' | 'objetivo' | 'categoria' | 'action' | 'ativo') => {
     let icon, title, subtitle, value;

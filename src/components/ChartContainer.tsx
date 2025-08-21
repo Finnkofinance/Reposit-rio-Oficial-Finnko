@@ -29,12 +29,12 @@ const ChartContainer: React.FC<ChartContainerProps> = ({ transacoes, compras, pa
 
   const despesasPorCategoria = useMemo(() => {
     const gastos: Record<string, number> = {};
-    const categoriaMap = new Map(categorias.map(c => [c.id, c.nome]));
+    const categoriaMap = new Map<string, string>(categorias.map(c => [c.id, c.nome]));
 
     transacoes
       .filter(t => t.realizado && t.tipo === TipoCategoria.Saida && t.data >= startDate && t.data <= endDate)
       .forEach(t => {
-        const nomeCat = categoriaMap.get(t.categoria_id) || 'Desconhecido';
+        const nomeCat: string = categoriaMap.get(t.categoria_id) ?? 'Desconhecido';
         gastos[nomeCat] = (gastos[nomeCat] || 0) + t.valor;
       });
 
@@ -43,7 +43,7 @@ const ChartContainer: React.FC<ChartContainerProps> = ({ transacoes, compras, pa
       .forEach(p => {
         const compra = compras.find(c => c.id === p.compra_id && !c.estorno);
         if (compra) {
-          const nomeCat = categoriaMap.get(compra.categoria_id) || 'Desconhecido';
+          const nomeCat: string = categoriaMap.get(compra.categoria_id) ?? 'Desconhecido';
           gastos[nomeCat] = (gastos[nomeCat] || 0) + p.valor_parcela;
         }
       });

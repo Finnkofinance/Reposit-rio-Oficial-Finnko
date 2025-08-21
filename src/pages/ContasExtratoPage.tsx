@@ -1,11 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, ArrowRightLeft } from 'lucide-react';
 
 import Modal from '@/components/Modal';
 import CurrencyInput from '@/components/CurrencyInput';
 import KPICard from '@/components/KPICard';
 import DatePeriodSelector from '@/components/DatePeriodSelector';
 import { ContaBancaria, TransacaoBanco, Categoria, TipoCategoria, ModalState, NavigationState } from '@/types/types';
+import { getCategoryIcon } from '@/constants.tsx';
+import { formatDate } from '@/utils/format';
 import { CORES_CARTAO, CORES_BANCO } from '@/constants.tsx';
 import { formatCurrency, calculateSaldo } from '@/utils/format';
 import MobileSelector from '@/components/MobileSelector';
@@ -56,6 +58,8 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
   toggleTransactionRealizado, modalState, openModal, closeModal, selectedView, setSelectedView, selectedMonth, onMonthChange,
   navigationState, clearNavigationState
 }) => {
+  type SortKey = keyof Pick<TransacaoBanco, 'data' | 'descricao' | 'valor' | 'categoria_id'>;
+  type SortDirection = 'ascending' | 'descending';
   const [sortConfig, setSortConfig] = useState<{ key: SortKey, direction: SortDirection }>({ key: 'data', direction: 'descending' });
   
   const [editingConta, setEditingConta] = useState<ContaBancaria | null>(null);
@@ -146,7 +150,7 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
     const startDate = `${selectedMonth}-01`;
     const endDate = new Date(year, month, 0).toISOString().split('T')[0];
     const contasVisiveisIds = selectedView === 'all' ? new Set(contas.map(c => c.id)) : new Set([selectedView]);
-    const contaMap = new Map(contas.map(c => [c.id, c]));
+    const contaMap = new Map<string, ContaBancaria>(contas.map(c => [c.id, c]));
 
     const txs = transacoes
       .filter(t => t.data >= startDate && t.data <= endDate)
@@ -174,8 +178,8 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
         if (!par) return;
         // Mostra apenas uma vez, a perna de débito
         if (t.id < par.id) {
-          const origem = contaMap.get(t.conta_id)?.nome || '';
-          const destino = contaMap.get(par.conta_id)?.nome || '';
+          const origem: string = contaMap.get(t.conta_id)?.nome ?? '';
+          const destino: string = contaMap.get(par.conta_id)?.nome ?? '';
           items.push({
             id: `trf-${t.id}`,
             data: t.data,

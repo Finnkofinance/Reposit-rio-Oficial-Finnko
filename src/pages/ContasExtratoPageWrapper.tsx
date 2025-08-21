@@ -4,7 +4,7 @@ import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
 import { useAppContext } from '@/context/AppContext';
-import { TipoCategoria } from '@/types/types';
+import { TipoCategoria, ContaBancaria } from '@/types/types';
 
 export default function ContasExtratoPageWrapper() {
   const { contas, addConta, updateConta, deleteConta } = useAccounts();

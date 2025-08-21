@@ -16,7 +16,7 @@ const CardAnalysisCard: React.FC<CardAnalysisCardProps> = ({ compras, parcelas, 
 
   const cardExpensesData = useMemo(() => {
     const gastos: Record<string, number> = {};
-    const categoriaMap = new Map(categorias.map(c => [c.id, c.nome]));
+    const categoriaMap = new Map<string, string>(categorias.map(c => [c.id, c.nome]));
 
     parcelas
       .filter(p => p.competencia_fatura === currentMonth)
@@ -28,7 +28,7 @@ const CardAnalysisCard: React.FC<CardAnalysisCardProps> = ({ compras, parcelas, 
             return;
         }
 
-        const nomeCat = categoriaMap.get(compra.categoria_id) || 'Desconhecido';
+        const nomeCat: string = categoriaMap.get(compra.categoria_id) ?? 'Desconhecido';
         gastos[nomeCat] = (gastos[nomeCat] || 0) + p.valor_parcela;
       });
       

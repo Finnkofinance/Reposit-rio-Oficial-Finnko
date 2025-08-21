@@ -178,14 +178,17 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
       groups[cat.tipo]!.push(cat);
     });
     
-    for (const key in groups) {
-      groups[key as TipoCategoria]?.sort((a, b) => {
-        const ao = (a.ordem ?? 999999);
-        const bo = (b.ordem ?? 999999);
-        if (ao !== bo) return ao - bo;
-        return a.nome.localeCompare(b.nome);
-      });
-    }
+    (Object.keys(groups) as Array<keyof typeof groups>).forEach((key) => {
+      const arr = groups[key];
+      if (arr && Array.isArray(arr)) {
+        arr.sort((a, b) => {
+          const ao = (a.ordem ?? 999999);
+          const bo = (b.ordem ?? 999999);
+          if (ao !== bo) return ao - bo;
+          return a.nome.localeCompare(b.nome);
+        });
+      }
+    });
     return groups;
   }, [categorias, selectedFilter]);
 
@@ -324,7 +327,7 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
             </div>
             <div className="mt-6 space-y-8 flex-grow overflow-y-auto">
               {Object.entries(groupedCategorias).map(([tipo, cats]) => {
-                if (!cats || cats.length === 0) return null;
+                if (!Array.isArray(cats) || cats.length === 0) return null;
                 return (
                   <div key={tipo}>
                     <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 border-b-2 border-gray-200 dark:border-gray-700 pb-2">{tipo}</h3>
@@ -354,7 +357,7 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
                         setDragOverId(null); setDragOverPos(null); setDraggingId(null);
                       }}
                     >
-                      {cats.map((c, idx) => renderCategoryItem(
+                      {Array.isArray(cats) && cats.map((c, idx) => renderCategoryItem(
                         c,
                         (ev, cat) => { ev.dataTransfer.setData('text/plain', cat.id); },
                         (ev, target) => {
@@ -419,7 +422,7 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
                         />
                       </div>
                       <div className="mt-2 space-y-3">
-                        {cats.map(c => {
+                        {Array.isArray(cats) && cats.map(c => {
                           const isProtected = c.sistema;
                           const realizado = realizadoPorCategoria[c.id] || 0;
                           return (

@@ -206,7 +206,7 @@ const VisaoGeralTab: React.FC<Pick<InvestimentosPageProps, 'objetivos' | 'ativos
             valor: ativos.filter(a => a.categoria === categoria).reduce((sum, a) => sum + (a.valor_atual_unitario * a.quantidade), 0)
         }));
 
-        let totalAlocado = 0;
+        let totalAlocado: number = 0;
         const alocacaoPorObjetivo = objetivos.map(obj => {
             const valorDeAtivos = alocacoes
                 .filter(a => a.objetivo_id === obj.id)
@@ -225,7 +225,7 @@ const VisaoGeralTab: React.FC<Pick<InvestimentosPageProps, 'objetivos' | 'ativos
             return { categoria: obj.nome, valor };
         });
         
-        const naoAlocado = patrimonioAtual - totalAlocado;
+        const naoAlocado: number = patrimonioAtual - totalAlocado;
         if (naoAlocado > 0.01) {
             alocacaoPorObjetivo.push({ categoria: 'Não Alocado', valor: naoAlocado });
         }
@@ -545,7 +545,10 @@ const AlocacaoModal: React.FC<AlocacaoModalProps> = ({ ativo, objetivos, alocaco
         setAlocacoes(initialAlocacoes);
     }, [alocacoesAtuais]);
     
-    const totalAlocado = useMemo(() => Object.values(alocacoes).reduce((sum, p) => sum + (p || 0), 0), [alocacoes]);
+    const totalAlocado = useMemo<number>(() => {
+        const values = Object.values(alocacoes) as number[];
+        return values.reduce<number>((sum, p) => sum + (p || 0), 0);
+    }, [alocacoes]);
     const restante = 100 - totalAlocado;
 
     const handleAlocacaoChange = (objetivoId: string, percentual: string) => {
@@ -558,7 +561,7 @@ const AlocacaoModal: React.FC<AlocacaoModalProps> = ({ ativo, objetivos, alocaco
             alert("A alocação total não pode exceder 100%.");
             return;
         }
-        const novasAlocacoes = Object.entries(alocacoes)
+        const novasAlocacoes = (Object.entries(alocacoes) as Array<[string, number]>)
             .filter(([, percentual]) => percentual > 0)
             .map(([objetivo_id, percentual]) => ({ objetivo_id, percentual }));
         

@@ -76,7 +76,18 @@ src/
    npm ci
    ```
 
-3. **Execute o projeto**
+3. **Variáveis de ambiente**
+   - Copie `.env.example` para `.env.local` e preencha:
+   ```bash
+   cp .env.example .env.local
+   # edite .env.local e preencha VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY
+   ```
+   - Alternativamente, gere um `.env.local` básico (placeholders):
+   ```bash
+   npm run setup
+   ```
+
+4. **Execute o projeto**
    ```bash
    # Desenvolvimento
    npm run dev
