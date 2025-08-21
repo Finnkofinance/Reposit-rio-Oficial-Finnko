@@ -1,5 +1,7 @@
-import React from 'react';
-import { DollarSign } from 'lucide-react';
+import React, { useState } from 'react';
+import { DollarSign, User } from 'lucide-react';
+import Modal from '@/components/Modal';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { NAV_ITEMS } from '@/constants.tsx';
 import { Page } from '@/types/types';
 
@@ -9,9 +11,13 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage }) => {
+  const { user } = useAuth();
+  const [isProfileOpen, setProfileOpen] = useState(false);
   const handleNavClick = (page: Page) => {
     setCurrentPage(page);
   };
+  const userName = user?.user_metadata?.full_name || 'Minha conta';
+  const userEmail = user?.email || '—';
 
   return (
     <aside className="hidden md:flex flex-col w-64 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border-r border-gray-200/80 dark:border-gray-700/50 p-4">
@@ -39,6 +45,69 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage }) => {
           ))}
         </ul>
       </nav>
+
+      {/* Perfil do usuário (desktop) */}
+      <div className="mt-2 pt-3 border-t border-gray-200/80 dark:border-gray-700/50">
+        <button
+          type="button"
+          onClick={() => setProfileOpen(true)}
+          className="w-full flex items-center space-x-3 p-2 rounded-md transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
+        >
+          <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
+            <User size={18} className="text-gray-500" />
+          </div>
+          <div className="flex-1 min-w-0 text-left">
+            <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">{userName}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{userEmail}</div>
+          </div>
+        </button>
+      </div>
+
+      {isProfileOpen && (
+        <Modal
+          isOpen={true}
+          onClose={() => setProfileOpen(false)}
+          title="Meu Perfil"
+          footer={<button onClick={() => setProfileOpen(false)} className="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white font-bold py-2 px-4 rounded-lg">Fechar</button>}
+        >
+          {user ? (
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Nome</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">{userName}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Email</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">{userEmail}</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Telefone</p>
+                  <p className="text-sm text-gray-900 dark:text-white">{user?.user_metadata?.phone || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Nascimento</p>
+                  <p className="text-sm text-gray-900 dark:text-white">{user?.user_metadata?.birth_date || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Sexo</p>
+                  <p className="text-sm text-gray-900 dark:text-white">{user?.user_metadata?.sex || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Brasileiro</p>
+                  <p className="text-sm text-gray-900 dark:text-white">{typeof user?.user_metadata?.is_brazilian === 'boolean' ? (user.user_metadata.is_brazilian ? 'Sim' : 'Não') : '—'}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Objetivo Financeiro</p>
+                <p className="text-sm text-gray-900 dark:text-white">{user?.user_metadata?.financial_goal || '—'}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-600 dark:text-gray-300">Você não está autenticado.</p>
+          )}
+        </Modal>
+      )}
     </aside>
   );
 };
