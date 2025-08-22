@@ -41,6 +41,7 @@ import InvestimentosPageWrapper from '@/pages/InvestimentosPageWrapper';
 import PerfilPageWrapper from '@/pages/PerfilPageWrapper';
 import CalculadoraJurosCompostosPageWrapper from '@/pages/CalculadoraJurosCompostosPageWrapper';
 import CalculadoraReservaEmergenciaPageWrapper from '@/pages/CalculadoraReservaEmergenciaPageWrapper';
+import ConfiguracoesPageWrapper from '@/pages/ConfiguracoesPageWrapper';
 import LandingPage from '@/pages/LandingPage';
 import AuthPage from '@/pages/AuthPage';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -145,7 +146,7 @@ const Layout = () => {
     }, [theme]);
 
     // Navigation function
-    const setCurrentPage = (page: string) => {
+    const setCurrentPage = (page: string, state?: any) => {
         const routeMap: Record<string, string> = {
             'resumo': '/app/resumo',
             'contas-extrato': '/app/contas',
@@ -154,10 +155,11 @@ const Layout = () => {
             'investimentos': '/app/investimentos',
             'perfil': '/app/perfil',
             'categorias-nav': '/app/perfil',
+            'configuracoes': '/app/configuracoes',
             'calculadora-juros-compostos': '/app/calculadora-juros-compostos',
             'calculadora-reserva-emergencia': '/app/calculadora-reserva-emergencia'
         };
-        navigate(routeMap[page] || '/app/resumo');
+        navigate(routeMap[page] || '/app/resumo', { state });
     };
 
     // Modal functions
@@ -437,6 +439,7 @@ const routerWithLayout = createBrowserRouter([
             { path: 'cartoes', element: <CartoesPageWrapper /> },
             { path: 'investimentos', element: <InvestimentosPageWrapper /> },
             { path: 'perfil', element: <PerfilPageWrapper /> },
+            { path: 'configuracoes', element: <ConfiguracoesPageWrapper /> },
             { path: 'calculadora-juros-compostos', element: <CalculadoraJurosCompostosPageWrapper /> },
             { path: 'calculadora-reserva-emergencia', element: <CalculadoraReservaEmergenciaPageWrapper /> },
             { path: 'configuracoes', element: <div className="text-center p-8"><h1 className="text-2xl">Configurações - Em breve</h1></div> },

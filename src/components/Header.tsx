@@ -102,7 +102,7 @@ const Header: React.FC<HeaderProps> = ({ setCurrentPage, profilePicture, onImage
                             </a>
                              <a href="#" onClick={(e) => {
                                 e.preventDefault();
-                                setCurrentPage('perfil', { viewId: 'configuracoes' });
+                                setCurrentPage('configuracoes');
                                 setIsCalcMenuOpen(false);
                             }} className="flex items-center space-x-3 w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white">
                                 <Upload size={16} />
