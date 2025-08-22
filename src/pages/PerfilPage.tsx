@@ -8,6 +8,8 @@ import DatePeriodSelector from '@/components/DatePeriodSelector';
 import CurrencyInput from '@/components/CurrencyInput';
 import { formatCurrency } from '@/utils/format';
 import MobileSelector from '@/components/MobileSelector';
+import { categoryBudgetsService } from '@/services/categoryBudgetsService';
+import { useAppContext } from '@/context/AppContext';
 import ConfiguracoesPage from './ConfiguracoesPage';
 
 type PerfilTab = 'categorias' | 'visualizacao' | 'configuracoes';
@@ -42,6 +44,7 @@ const CATEGORY_FILTERS = [
 ];
 
 const PerfilPage: React.FC<PerfilPageProps> = (props) => {
+  const { setConfirmation, showToast } = useAppContext() as any;
   const [activeTab, setActiveTab] = useState<PerfilTab>('categorias');
 
   const [editingCategoria, setEditingCategoria] = useState<Categoria | null>(null);
@@ -228,7 +231,7 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
     openModal('editar-categoria', { categoria });
   };
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (nome.trim() === '') return;
 
@@ -239,9 +242,39 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
     };
     
     if (editingCategoria) {
-      updateCategoria({ ...editingCategoria, ...categoriaData });
+      await updateCategoria({ ...editingCategoria, ...categoriaData });
     } else {
-      addCategoria({ ...categoriaData });
+      const created = await addCategoria({ ...categoriaData });
+      // Após salvar, perguntar se repete o orçamento para os próximos 12 meses
+      if (categoriaData.orcamento_mensal && created) {
+        const catId = (created as any).id as string;
+        setConfirmation({
+          title: 'Repetir orçamento para 12 meses?',
+          message: 'Deseja aplicar o mesmo valor desta categoria para os próximos 12 meses? Você poderá alterar mês a mês depois.',
+          buttons: [
+            {
+              label: 'Não repetir',
+              style: 'secondary',
+              onClick: () => {
+                setConfirmation(null);
+                showToast && showToast('Orçamento aplicado apenas no mês atual.', 'info');
+              }
+            },
+            {
+              label: 'Repetir 12 meses',
+              style: 'primary',
+              onClick: async () => {
+                try {
+                  await categoryBudgetsService.repeatForNextMonths(selectedMonth, 12, [{ categoria_id: catId, valor: categoriaData.orcamento_mensal! }]);
+                  showToast && showToast('Orçamento repetido para os próximos 12 meses.', 'success');
+                } finally {
+                  setConfirmation(null);
+                }
+              }
+            }
+          ]
+        });
+      }
     }
     
     closeModal();
@@ -331,18 +364,15 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
         </div>
         <div className="flex-1 flex flex-col overflow-hidden">
             <DatePeriodSelector title="Orçamentos e Categorias" selectedMonth={selectedMonth} onMonthChange={onMonthChange} />
-             <div className="md:hidden">
-                <MobileSelector
-                    allLabel="Todas as Categorias"
-                    options={CATEGORY_FILTERS.filter(f => f.id !== 'all').map(f => ({ value: f.id, label: f.label }))}
-                    value={selectedFilter}
-                    onChange={(val) => setSelectedFilter(val as any)}
-                    onAddNew={() => openModal('nova-categoria')}
-                    addNewLabel="Adicionar nova categoria"
-                />
+            {/* Ação rápida: adicionar categoria (sem filtro de categorias no mobile) */}
+            <div className="md:hidden mt-3">
+              <button onClick={() => openModal('nova-categoria')} className="w-full text-center p-3 rounded-lg flex items-center justify-center space-x-2 transition-colors bg-gray-100 dark:bg-gray-700/50 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700">
+                <Plus size={18} /><span>Adicionar nova categoria</span>
+              </button>
             </div>
             <div className="mt-6 space-y-8 flex-grow overflow-y-auto">
               {Object.entries(groupedCategorias).map(([tipo, cats]) => {
+                if (tipo === 'Transferencia') return null; // Oculta transferências
                 if (!Array.isArray(cats) || cats.length === 0) return null;
                 return (
                   <div key={tipo}>

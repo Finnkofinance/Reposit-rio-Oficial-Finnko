@@ -5,8 +5,8 @@ import { useAuth } from '@/features/auth/AuthProvider';
 
 interface CategoriesContextType {
   categorias: Categoria[];
-  addCategoria: (cat: Omit<Categoria, 'id' | 'createdAt' | 'updatedAt' | 'sistema'>) => void;
-  updateCategoria: (cat: Categoria) => void;
+  addCategoria: (cat: Omit<Categoria, 'id' | 'createdAt' | 'updatedAt' | 'sistema'>) => Promise<Categoria | null>;
+  updateCategoria: (cat: Categoria) => Promise<Categoria | null>;
   deleteCategoria: (id: string) => void;
   validateCategoriaDeletion: (categoryId: string, transacoes: any[], compras: any[]) => boolean;
   bulkReplaceCategories: (categorias: Categoria[]) => void;
@@ -44,14 +44,26 @@ export const CategoriesProvider: React.FC<CategoriesProviderProps> = ({ children
     })();
   }, [categorias, initialLoaded]);
 
-  const addCategoria = async (cat: Omit<Categoria, 'id' | 'createdAt' | 'updatedAt' | 'sistema'>) => {
-    const newCat = await categoriesService.create(cat);
-    setCategorias(prev => [...prev, newCat]);
+  const addCategoria = async (cat: Omit<Categoria, 'id' | 'createdAt' | 'updatedAt' | 'sistema'>): Promise<Categoria | null> => {
+    try {
+      const newCat = await categoriesService.create(cat);
+      setCategorias(prev => [...prev, newCat]);
+      return newCat;
+    } catch (e) {
+      console.error('addCategoria error:', e);
+      return null;
+    }
   };
 
-  const updateCategoria = async (cat: Categoria) => {
-    const updatedCat = await categoriesService.update(cat);
-    setCategorias(prev => prev.map(c => c.id === cat.id ? updatedCat : c));
+  const updateCategoria = async (cat: Categoria): Promise<Categoria | null> => {
+    try {
+      const updatedCat = await categoriesService.update(cat);
+      setCategorias(prev => prev.map(c => c.id === cat.id ? updatedCat : c));
+      return updatedCat;
+    } catch (e) {
+      console.error('updateCategoria error:', e);
+      return null;
+    }
   };
 
   const deleteCategoria = (id: string) => {

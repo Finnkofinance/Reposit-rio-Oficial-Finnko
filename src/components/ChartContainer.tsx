@@ -81,12 +81,12 @@ const ChartContainer: React.FC<ChartContainerProps> = ({ transacoes, compras, pa
 
 
   const tabButtonClasses = (isActive: boolean) => 
-    `px-3 py-1 text-sm font-semibold rounded-md transition-colors ${
+    `px-3 h-9 inline-flex items-center justify-center whitespace-nowrap text-sm font-semibold rounded-md transition-colors ${
       isActive ? 'bg-gradient-to-r from-[#19CF67] to-[#00DE5F] text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600/50'
     }`;
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl h-full flex flex-col shadow-sm dark:shadow-none">
+    <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl flex flex-col shadow-sm dark:shadow-none">
       <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
         <h3 className="font-semibold text-gray-900 dark:text-white">
           {activeTab === 'categorias' ? 'Despesas por Categoria' : 'Evolução Mensal'}
@@ -114,7 +114,7 @@ const ChartContainer: React.FC<ChartContainerProps> = ({ transacoes, compras, pa
             </div>
         </div>
       </div>
-      <div className="flex-grow">
+      <div className="mt-2">
         {activeTab === 'categorias' && <DoughnutChart rows={despesasPorCategoria} />}
         {activeTab === 'evolucao' && <GraficoBarrasESI data={historicoMensal} />}
       </div>
