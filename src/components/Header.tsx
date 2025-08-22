@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Page } from '@/types/types';
-import { Calendar, Search, Menu, Settings, TrendingUp, Shield, Sun, Moon, BarChartBig, Upload, LogOut, User } from 'lucide-react';
+import { Search, Menu, Settings, TrendingUp, Shield, Sun, Moon, BarChartBig, Upload, LogOut, User, BarChartHorizontal } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useNavigate } from 'react-router-dom';
 
@@ -56,22 +56,23 @@ const Header: React.FC<HeaderProps> = ({ setCurrentPage, profilePicture, onImage
         {/* Desktop spacer para manter layout */}
         <div className="justify-self-start hidden md:block" />
         
-        {/* Center: Resumo Button */}
+        {/* Center: Botão Resumo maior no topo */}
         <div className="justify-self-center">
             <button
                 onClick={() => setCurrentPage('resumo')}
-                className="bg-gradient-to-r from-[#19CF67] to-[#00DE5F] text-white w-12 h-12 rounded-full flex items-center justify-center shadow-lg hover:from-[#16B359] hover:to-[#00C454] transition-colors"
+                className="bg-gradient-to-r from-[#19CF67] to-[#00DE5F] text-white px-5 md:px-6 h-12 rounded-full flex items-center justify-center gap-2 shadow-lg hover:from-[#16B359] hover:to-[#00C454] transition-colors"
                 title="Resumo"
                 aria-label="Ir para a página de Resumo"
             >
-                <BarChartBig size={24} />
+                <BarChartBig size={20} />
+                <span className="font-semibold">Resumo</span>
             </button>
         </div>
         
         {/* Right side icons */}
         <div className="flex items-center space-x-2 md:space-x-4 justify-self-end">
-            <button onClick={() => setCurrentPage('fluxo')} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors" aria-label="Calendário">
-                <Calendar size={20} />
+            <button onClick={() => setCurrentPage('categorias-nav')} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors" aria-label="Orçamentos e Categorias">
+                <BarChartHorizontal size={20} />
             </button>
             <button onClick={onSearchClick} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors" aria-label="Buscar">
                 <Search size={20} />

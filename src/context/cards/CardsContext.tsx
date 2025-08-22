@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Cartao, CompraCartao, ParcelaCartao } from '@/types/types';
 import { cardsService } from '@/services/cardsService';
+import { useAuth } from '@/features/auth/AuthProvider';
 
 interface CardsContextType {
   cartoes: Cartao[];
@@ -28,32 +29,34 @@ export const CardsProvider: React.FC<CardsProviderProps> = ({ children }) => {
   const [cartoes, setCartoes] = useState<Cartao[]>([]);
   const [compras, setCompras] = useState<CompraCartao[]>([]);
   const [parcelas, setParcelas] = useState<ParcelaCartao[]>([]);
+  const [initialLoaded, setInitialLoaded] = useState(false);
+  const { user, loading } = useAuth();
 
-  // Load data from localStorage on mount
+  // Load data (Supabase se logado; senão localStorage)
   useEffect(() => {
-    const loadedCartoes = cardsService.getAll();
-    setCartoes(loadedCartoes);
+    if (loading) return;
+    (async () => {
+      const loadedCartoes = await cardsService.getAll();
+      setCartoes(Array.isArray(loadedCartoes) ? loadedCartoes : []);
+      try {
+        const comprasItem = window.localStorage.getItem('compras');
+        setCompras(comprasItem ? JSON.parse(comprasItem) : []);
+        const parcelasItem = window.localStorage.getItem('parcelas');
+        setParcelas(parcelasItem ? JSON.parse(parcelasItem) : []);
+      } catch (error) {
+        console.error('Error loading compras/parcelas:', error);
+        setCompras([]);
+        setParcelas([]);
+      }
+      setInitialLoaded(true);
+    })();
+  }, [loading, user?.id]);
 
-    // Load compras and parcelas
-    try {
-      const comprasItem = window.localStorage.getItem('compras');
-      setCompras(comprasItem ? JSON.parse(comprasItem) : []);
-      
-      const parcelasItem = window.localStorage.getItem('parcelas');
-      setParcelas(parcelasItem ? JSON.parse(parcelasItem) : []);
-    } catch (error) {
-      console.error('Error loading compras/parcelas:', error);
-      setCompras([]);
-      setParcelas([]);
-    }
-  }, []);
-
-  // Save to localStorage whenever data changes
+  // Save cards
   useEffect(() => {
-    if (cartoes.length >= 0) {
-      cardsService.save(cartoes);
-    }
-  }, [cartoes]);
+    if (!initialLoaded) return;
+    (async () => { await cardsService.save(cartoes); })();
+  }, [cartoes, initialLoaded]);
 
   useEffect(() => {
     if (compras.length >= 0) {

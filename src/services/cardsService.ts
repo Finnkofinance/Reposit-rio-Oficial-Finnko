@@ -1,22 +1,50 @@
 import { Cartao, CompraCartao, ParcelaCartao } from '@/types/types';
 import { computeFirstCompetency, addMonths, splitInstallments } from '@/utils/format';
+import { supabase } from '@/lib/supabaseClient';
 
 export const cardsService = {
-  getAll: (): Cartao[] => {
+  // Busca cartões. Se logado, lê do Supabase; senão, localStorage (demo)
+  getAll: async (): Promise<Cartao[]> => {
     try {
+      const { data: auth } = await supabase.auth.getSession();
+      if (auth.session?.user) {
+        const { data, error } = await supabase
+          .from('cartoes')
+          .select('id, apelido, dia_fechamento, dia_vencimento, limite, bandeira, cor, conta_id_padrao, created_at, updated_at')
+          .order('apelido', { ascending: true });
+        if (error) throw error;
+        return (data || []) as unknown as Cartao[];
+      }
       const item = window.localStorage.getItem('cartoes');
       return item ? JSON.parse(item) : [];
     } catch (error) {
-      console.error('Error reading cards from localStorage:', error);
+      console.error('Error reading cards:', error);
       return [];
     }
   },
 
-  save: (cartoes: Cartao[]): void => {
+  // Salva cartões. Se logado, upsert no Supabase; senão, localStorage
+  save: async (cartoes: Cartao[]): Promise<void> => {
     try {
+      const { data: auth } = await supabase.auth.getSession();
+      if (auth.session?.user) {
+        const payload = cartoes.map(c => ({
+          id: c.id,
+          apelido: c.apelido,
+          dia_fechamento: c.dia_fechamento,
+          dia_vencimento: c.dia_vencimento,
+          limite: c.limite,
+          bandeira: c.bandeira,
+          cor: c.cor,
+          conta_id_padrao: c.conta_id_padrao ?? null,
+        }));
+        const { error } = await supabase.from('cartoes').upsert(payload, { onConflict: 'id' });
+        if (error) throw error;
+        return;
+      }
       window.localStorage.setItem('cartoes', JSON.stringify(cartoes));
     } catch (error) {
-      console.error('Error saving cards to localStorage:', error);
+      console.error('Error saving cards:', error);
     }
   },
 

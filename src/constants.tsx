@@ -43,11 +43,11 @@ export const CATEGORIAS_PADRAO: Categoria[] = [
 ];
 
 export const NAV_ITEMS: { id: Page; label: string; icon: React.ReactElement }[] = [
-    { id: 'categorias-nav', label: 'Orçamentos e Categorias', icon: <BarChartHorizontal size={20} /> },
+    { id: 'fluxo', label: 'Fluxo de Caixa', icon: <Waves size={20} /> },
     { id: 'contas-extrato', label: 'Contas e Extrato', icon: <Landmark size={20} /> },
     { id: 'cartoes', label: 'Cartões', icon: <CreditCard size={20} /> },
-    { id: 'fluxo', label: 'Fluxo de Caixa', icon: <Waves size={20} /> },
     { id: 'investimentos', label: 'Investimentos', icon: <TrendingUp size={20} /> },
+    { id: 'categorias-nav', label: 'Orçamentos e Categorias', icon: <BarChartHorizontal size={20} /> },
 ];
 
 export const UNKNOWN_CATEGORY: Categoria = {

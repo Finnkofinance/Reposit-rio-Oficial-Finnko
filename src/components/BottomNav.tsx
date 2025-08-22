@@ -15,7 +15,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ currentPage, setCurrentPage, onNe
   const fabRef = useRef<HTMLDivElement>(null);
   
   const navItemsForBar = [
-    NAV_ITEMS.find(i => i.id === 'categorias-nav'),
+    NAV_ITEMS.find(i => i.id === 'fluxo'),
     NAV_ITEMS.find(i => i.id === 'contas-extrato'),
     NAV_ITEMS.find(i => i.id === 'cartoes'),
     NAV_ITEMS.find(i => i.id === 'investimentos'),
