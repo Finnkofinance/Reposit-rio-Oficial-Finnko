@@ -68,6 +68,21 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
   const resizingRef = React.useRef<{ boundary: 1 | 2; startX: number; startPerc: { cat: number; orcado: number; realizado: number }; containerW: number } | null>(null);
   const [movedRowId, setMovedRowId] = useState<string | null>(null);
 
+  // Orçamentos por mês (competência atual)
+  const [budgets, setBudgets] = useState<Record<string, number>>({});
+  useEffect(() => {
+    (async () => {
+      try {
+        const rows = await categoryBudgetsService.getForMonth(props.selectedMonth);
+        const map: Record<string, number> = {};
+        rows.forEach(r => { map[r.categoria_id] = r.valor; });
+        setBudgets(map);
+      } catch {
+        setBudgets({});
+      }
+    })();
+  }, [props.selectedMonth]);
+
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 768px)');
     const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
@@ -202,14 +217,15 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
       if (categoriaToEdit) {
         setNome(categoriaToEdit.nome);
         setTipo(categoriaToEdit.tipo);
-        setOrcamento(categoriaToEdit.orcamento_mensal ? String(categoriaToEdit.orcamento_mensal * 100) : '');
+        const currentBudget = budgets[categoriaToEdit.id] || 0;
+        setOrcamento(currentBudget ? String(currentBudget * 100) : '');
       } else {
         setNome('');
         setTipo(TipoCategoria.Saida);
         setOrcamento('');
       }
     }
-  }, [isModalOpen, modalState.data]);
+  }, [isModalOpen, modalState.data, budgets]);
 
   const isEditingInUse = React.useMemo(() => {
     if (!editingCategoria) return false;
@@ -243,48 +259,64 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
     
     if (editingCategoria) {
       await updateCategoria({ ...editingCategoria, ...categoriaData });
-    } else {
-      const created = await addCategoria({ ...categoriaData });
-      // Após salvar, perguntar se repete o orçamento para os próximos 12 meses
-      if (categoriaData.orcamento_mensal && created) {
-        const catId = (created as any).id as string;
+      // Grava o orçamento somente para o mês atual (não bloquear fluxo se falhar)
+      const valor = categoriaData.orcamento_mensal ?? 0;
+      try {
+        await categoryBudgetsService.upsertMany(props.selectedMonth, [{ categoria_id: editingCategoria.id, valor }]);
+      } catch (e) { console.error('budget upsert (edit) failed', e); }
+      // Oferta para propagar 12 meses
+      if (valor > 0) {
         setConfirmation({
-          title: 'Repetir orçamento para 12 meses?',
-          message: 'Deseja aplicar o mesmo valor desta categoria para os próximos 12 meses? Você poderá alterar mês a mês depois.',
+          title: 'Atualizar próximos 12 meses?',
+          message: 'Deseja aplicar este mesmo orçamento para os próximos 12 meses também? Caso contrário, alteraremos apenas o mês atual.',
           buttons: [
-            {
-              label: 'Não repetir',
-              style: 'secondary',
-              onClick: () => {
-                setConfirmation(null);
-                showToast && showToast('Orçamento aplicado apenas no mês atual.', 'info');
-              }
-            },
-            {
-              label: 'Repetir 12 meses',
-              style: 'primary',
-              onClick: async () => {
-                try {
-                  await categoryBudgetsService.repeatForNextMonths(selectedMonth, 12, [{ categoria_id: catId, valor: categoriaData.orcamento_mensal! }]);
-                  showToast && showToast('Orçamento repetido para os próximos 12 meses.', 'success');
-                } finally {
-                  setConfirmation(null);
-                }
-              }
-            }
+            { label: 'Somente este mês', style: 'secondary', onClick: () => setConfirmation(null) },
+            { label: 'Aplicar 12 meses', style: 'primary', onClick: async () => { try {
+                  await categoryBudgetsService.repeatForNextMonths(props.selectedMonth, 12, [{ categoria_id: editingCategoria.id, valor }]);
+                } catch (e) { console.error('budget repeat (edit) failed', e);} finally { setConfirmation(null); } } }
           ]
         });
+      }
+    } else {
+      const created = await addCategoria({ ...categoriaData });
+      if (created) {
+        const catId = (created as any).id as string;
+        const valor = categoriaData.orcamento_mensal ?? 0;
+        // Sempre grava o mês atual
+        try {
+          await categoryBudgetsService.upsertMany(props.selectedMonth, [{ categoria_id: catId, valor }]);
+        } catch (e) { console.error('budget upsert (create) failed', e); }
+        // Pergunta se repete 12 meses (apenas meses seguintes)
+        if (valor > 0) {
+          setConfirmation({
+            title: 'Repetir orçamento para 12 meses?',
+            message: 'Deseja aplicar o mesmo valor desta categoria para os próximos 12 meses? Você poderá alterar mês a mês depois.',
+            buttons: [
+              { label: 'Não repetir', style: 'secondary', onClick: () => { setConfirmation(null); } },
+              { label: 'Repetir 12 meses', style: 'primary', onClick: async () => { try {
+                    await categoryBudgetsService.repeatForNextMonths(props.selectedMonth, 12, [{ categoria_id: catId, valor }]);
+                  } catch (e) { console.error('budget repeat (create) failed', e);} finally { setConfirmation(null); } } }
+            ]
+          });
+        }
       }
     }
     
     closeModal();
+    // Recarrega budgets do mês
+    try {
+      const rows = await categoryBudgetsService.getForMonth(props.selectedMonth);
+      const map: Record<string, number> = {};
+      rows.forEach(r => { map[r.categoria_id] = r.valor; });
+      setBudgets(map);
+    } catch {}
   };
 
   const renderCategoryItem = (categoria: Categoria, onDragStart?: (e: React.DragEvent, c: Categoria) => void, onDragOverItem?: (e: React.DragEvent, c: Categoria) => void, onDropItem?: (e: React.DragEvent, c: Categoria) => void, onDragEnd?: () => void) => {
     const isProtected = categoria.sistema;
     const gasto = realizadoPorCategoria[categoria.id] || 0;
-    const orcamentoDefinido = categoria.orcamento_mensal && categoria.orcamento_mensal > 0;
-    const progresso = orcamentoDefinido ? Math.min((gasto / categoria.orcamento_mensal!) * 100, 100) : 0;
+    const orcamentoDefinido = (budgets[categoria.id] || 0) > 0;
+    const progresso = orcamentoDefinido ? Math.min((gasto / (budgets[categoria.id] || 1)) * 100, 100) : 0;
     const progressoCor = progresso > 90 ? 'bg-red-500' : progresso > 75 ? 'bg-yellow-500' : 'bg-green-500';
 
     return (
@@ -329,7 +361,7 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
                         <div>
                             <div className="flex justify-between text-xs text-gray-600 dark:text-gray-300 mb-1">
                                 <span>{formatCurrency(gasto)}</span>
-                                <span>{formatCurrency(categoria.orcamento_mensal!)}</span>
+                                <span>{formatCurrency(budgets[categoria.id] || 0)}</span>
                             </div>
                             <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
                                 <div className={`h-1.5 rounded-full ${progressoCor}`} style={{ width: `${progresso}%` }}></div>
@@ -519,7 +551,7 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
                                 </div>
                               </div>
                               {/* Coluna Orçado */}
-                              <div className="flex items-center justify-center text-sm text-gray-700 dark:text-gray-200 border-l border-gray-700">{formatCurrency(c.orcamento_mensal || 0)}</div>
+                              <div className="flex items-center justify-center text-sm text-gray-700 dark:text-gray-200 border-l border-gray-700">{formatCurrency(budgets[c.id] || 0)}</div>
                               {/* Coluna Realizado */}
                               <div className="flex items-center justify-center text-sm text-gray-700 dark:text-gray-200 border-l border-gray-700">{formatCurrency(realizado)}</div>
                             </div>

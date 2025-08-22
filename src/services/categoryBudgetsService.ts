@@ -39,12 +39,13 @@ export const categoryBudgetsService = {
   async upsertMany(month: string, items: { categoria_id: string; valor: number }[]) {
     const { data: auth } = await supabase.auth.getSession();
     if (auth.session?.user) {
-      const payload = items.map(i => ({ ...i, competencia: month }));
-      const { error } = await supabase.from('categoria_orcamentos').upsert(payload, { onConflict: 'categoria_id,competencia' });
-      if (error) throw error;
-      return;
+      try {
+        const payload = items.map(i => ({ ...i, competencia: month }));
+        const { error } = await supabase.from('categoria_orcamentos').upsert(payload, { onConflict: 'categoria_id,competencia' });
+        if (!error) return;
+      } catch {}
+      // Fallback local se a tabela não existir ou qualquer erro ocorrer
     }
-    // local
     const current = readLocal(month);
     const map = new Map(current.map(r => [r.categoria_id, r]));
     items.forEach(i => map.set(i.categoria_id, { categoria_id: i.categoria_id, competencia: month, valor: i.valor }));
@@ -62,11 +63,12 @@ export const categoryBudgetsService = {
     }
     const { data: auth } = await supabase.auth.getSession();
     if (auth.session?.user) {
-      const { error } = await supabase.from('categoria_orcamentos').upsert(rows, { onConflict: 'categoria_id,competencia' });
-      if (error) throw error;
-      return;
+      try {
+        const { error } = await supabase.from('categoria_orcamentos').upsert(rows, { onConflict: 'categoria_id,competencia' });
+        if (!error) return;
+      } catch {}
+      // Fallback local se erro
     }
-    // local
     for (const r of rows) {
       const current = readLocal(r.competencia);
       const map = new Map(current.map(x => [x.categoria_id, x]));
