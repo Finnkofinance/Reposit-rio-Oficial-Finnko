@@ -4,6 +4,7 @@ import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useInvestments } from '@/hooks/useInvestments';
 import { useCategories } from '@/hooks/useCategories';
+import { TipoCategoria } from '@/types/types';
 import { useAppContext } from '@/context/AppContext';
 
 export default function InvestimentosPageWrapper() {
@@ -22,7 +23,7 @@ export default function InvestimentosPageWrapper() {
     setAlocacoesParaAtivo,
     addInvestmentTransaction
   } = useInvestments();
-  const { categorias } = useCategories();
+  const { categorias, addCategoria } = useCategories();
   const { selectedMonth, setSelectedMonth, openModal } = useAppContext();
 
   const handleAddInvestimentoTransaction = (txData: any) => {
@@ -35,10 +36,19 @@ export default function InvestimentosPageWrapper() {
     }
   };
 
+  const handleAddObjetivo = async (data: any) => {
+    const created = await addObjetivo(data);
+    if (created) {
+      // Cria categoria de Investimento correspondente (se ainda não existir)
+      await addCategoria({ nome: created.nome, tipo: TipoCategoria.Investimento, orcamento_mensal: null });
+    }
+    return created;
+  };
+
   return (
     <InvestimentosPage
       objetivos={objetivos}
-      addObjetivo={addObjetivo}
+      addObjetivo={handleAddObjetivo}
       updateObjetivo={updateObjetivo}
       deleteObjetivo={deleteObjetivo}
       ativos={ativos}

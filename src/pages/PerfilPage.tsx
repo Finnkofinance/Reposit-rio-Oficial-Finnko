@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Categoria, TransacaoBanco, TipoCategoria, CompraCartao, ModalState, ParcelaCartao, Settings, NavigationState } from '@/types/types';
+import { Categoria, TransacaoBanco, TipoCategoria, CompraCartao, ModalState, ParcelaCartao, Settings, NavigationState, ObjetivoInvestimento } from '@/types/types';
 import Modal from '@/components/Modal';
 import { getCategoryIcon } from '@/constants.tsx';
 import { Plus, Pencil, Trash2, Lock, ChevronDown, GripVertical } from 'lucide-react';
@@ -19,6 +19,7 @@ interface PerfilPageProps {
   transacoes: TransacaoBanco[];
   compras: CompraCartao[];
   parcelas: ParcelaCartao[];
+  objetivos?: ObjetivoInvestimento[];
   addCategoria: (categoria: Omit<Categoria, 'id' | 'createdAt' | 'updatedAt' | 'sistema'>) => void;
   updateCategoria: (categoria: Categoria) => void;
   deleteCategoria: (id: string) => void;
@@ -82,6 +83,29 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
       }
     })();
   }, [props.selectedMonth]);
+
+  // Orçamento automático para categorias de Investimento com objetivo associado
+  const autoBudgets = useMemo(() => {
+    const base: Record<string, number> = { ...budgets };
+    const objetivos = props.objetivos || [];
+    if (!objetivos.length) return base;
+    // Função: diferença em meses entre selectedMonth (YYYY-MM) e data_meta (YYYY-MM-DD), inclusiva
+    const [y, m] = props.selectedMonth.split('-').map(x => parseInt(x, 10));
+    const fromIdx = y * 12 + (m - 1);
+    objetivos.forEach(obj => {
+      const goalDate = new Date(obj.data_meta);
+      const gy = goalDate.getUTCFullYear();
+      const gm = goalDate.getUTCMonth(); // 0-based
+      const toIdx = gy * 12 + gm;
+      const diff = toIdx - fromIdx + 1; // inclusivo
+      if (diff <= 0) return; // objetivo já venceu para o mês selecionado
+      const monthly = (obj.valor_meta || 0) / diff;
+      // Encontrar categoria de investimento com mesmo nome
+      const cat = props.categorias.find(c => c.tipo === TipoCategoria.Investimento && c.nome.toLowerCase() === obj.nome.toLowerCase());
+      if (cat) base[cat.id] = monthly;
+    });
+    return base;
+  }, [budgets, props.objetivos, props.selectedMonth, props.categorias]);
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 768px)');
@@ -319,8 +343,9 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
   const renderCategoryItem = (categoria: Categoria, onDragStart?: (e: React.DragEvent, c: Categoria) => void, onDragOverItem?: (e: React.DragEvent, c: Categoria) => void, onDropItem?: (e: React.DragEvent, c: Categoria) => void, onDragEnd?: () => void) => {
     const isProtected = categoria.sistema;
     const gasto = realizadoPorCategoria[categoria.id] || 0;
-    const orcamentoDefinido = (budgets[categoria.id] || 0) > 0;
-    const progresso = orcamentoDefinido ? Math.min((gasto / (budgets[categoria.id] || 1)) * 100, 100) : 0;
+    const budgetValue = autoBudgets[categoria.id] || 0;
+    const orcamentoDefinido = budgetValue > 0;
+    const progresso = orcamentoDefinido ? Math.min((gasto / (budgetValue || 1)) * 100, 100) : 0;
     const progressoCor = progresso > 90 ? 'bg-red-500' : progresso > 75 ? 'bg-yellow-500' : 'bg-green-500';
 
     return (
@@ -365,7 +390,7 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
                         <div>
                             <div className="flex justify-between text-xs text-gray-600 dark:text-gray-300 mb-1">
                                 <span>{formatCurrency(gasto)}</span>
-                                <span>{formatCurrency(budgets[categoria.id] || 0)}</span>
+                                <span>{formatCurrency(budgetValue)}</span>
                             </div>
                             <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
                                 <div className={`h-1.5 rounded-full ${progressoCor}`} style={{ width: `${progresso}%` }}></div>
@@ -565,7 +590,7 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
                                 </div>
                               </div>
                               {/* Coluna Orçado */}
-                              <div className="flex items-center justify-center text-sm text-gray-700 dark:text-gray-200 border-l border-gray-700">{formatCurrency(budgets[c.id] || 0)}</div>
+                              <div className="flex items-center justify-center text-sm text-gray-700 dark:text-gray-200 border-l border-gray-700">{formatCurrency(autoBudgets[c.id] || 0)}</div>
                               {/* Coluna Realizado */}
                               <div className="flex items-center justify-center text-sm text-gray-700 dark:text-gray-200 border-l border-gray-700">{formatCurrency(realizado)}</div>
                             </div>

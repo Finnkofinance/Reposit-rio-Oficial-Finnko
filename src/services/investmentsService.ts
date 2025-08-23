@@ -1,72 +1,175 @@
-import { ObjetivoInvestimento, Ativo, Alocacao, TransacaoBanco, TipoCategoria, Categoria } from '@/types/types';
+import { ObjetivoInvestimento, Ativo, Alocacao, TransacaoBanco, TipoCategoria, Categoria, CategoriaAtivo } from '@/types/types';
+import { supabase } from '@/lib/supabaseClient';
 
 export const investmentsService = {
   // Objetivos
-  getAllObjetivos: (): ObjetivoInvestimento[] => {
-    try {
-      const item = window.localStorage.getItem('objetivos');
-      return item ? JSON.parse(item) : [];
-    } catch (error) {
-      console.error('Error reading objetivos from localStorage:', error);
+  getAllObjetivos: async (): Promise<ObjetivoInvestimento[]> => {
+    const { data: auth } = await supabase.auth.getSession();
+    if (!auth.session?.user) return [];
+    const { data, error } = await supabase
+      .from('objetivos_investimento')
+      .select('id, nome, valor_meta, data_meta, created_at, updated_at')
+      .eq('user_id', auth.session.user.id)
+      .order('created_at', { ascending: true });
+    if (error) {
+      console.error('getAllObjetivos error:', error);
       return [];
     }
+    return (data || []).map((r: any) => ({
+      id: r.id,
+      nome: r.nome,
+      valor_meta: r.valor_meta,
+      data_meta: r.data_meta,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at
+    }));
   },
 
-  saveObjetivos: (objetivos: ObjetivoInvestimento[]): void => {
-    try {
-      window.localStorage.setItem('objetivos', JSON.stringify(objetivos));
-    } catch (error) {
-      console.error('Error saving objetivos to localStorage:', error);
+  saveObjetivos: async (_objetivos: ObjetivoInvestimento[]): Promise<void> => { /* deprecated */ },
+
+  createObjetivo: async (obj: Omit<ObjetivoInvestimento, 'id' | 'createdAt' | 'updatedAt'>): Promise<ObjetivoInvestimento | null> => {
+    const { data: auth } = await supabase.auth.getSession();
+    if (!auth.session?.user) return null;
+    const payload = { ...obj, user_id: auth.session.user.id } as any;
+    const { data, error } = await supabase
+      .from('objetivos_investimento')
+      .insert(payload)
+      .select('id, nome, valor_meta, data_meta, created_at, updated_at')
+      .single();
+    if (error) {
+      console.error('createObjetivo error:', error);
+      return null;
     }
-  },
-
-  createObjetivo: (obj: Omit<ObjetivoInvestimento, 'id' | 'createdAt' | 'updatedAt'>): ObjetivoInvestimento => {
     return {
-      ...obj,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString()
+      id: data.id,
+      nome: data.nome,
+      valor_meta: data.valor_meta,
+      data_meta: data.data_meta,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at
     };
   },
 
-  updateObjetivo: (obj: ObjetivoInvestimento): ObjetivoInvestimento => {
+  updateObjetivo: async (obj: ObjetivoInvestimento): Promise<ObjetivoInvestimento | null> => {
+    const { data: auth } = await supabase.auth.getSession();
+    if (!auth.session?.user) return null;
+    const { data, error } = await supabase
+      .from('objetivos_investimento')
+      .update({ nome: obj.nome, valor_meta: obj.valor_meta, data_meta: obj.data_meta })
+      .eq('id', obj.id)
+      .eq('user_id', auth.session.user.id)
+      .select('id, nome, valor_meta, data_meta, created_at, updated_at')
+      .single();
+    if (error) {
+      console.error('updateObjetivo error:', error);
+      return null;
+    }
     return {
-      ...obj,
-      updatedAt: new Date().toISOString()
+      id: data.id,
+      nome: data.nome,
+      valor_meta: data.valor_meta,
+      data_meta: data.data_meta,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at
     };
   },
 
-  // Ativos
-  getAllAtivos: (): Ativo[] => {
-    try {
-      const item = window.localStorage.getItem('ativos');
-      return item ? JSON.parse(item) : [];
-    } catch (error) {
-      console.error('Error reading ativos from localStorage:', error);
+  // Ativos (Supabase)
+  getAllAtivos: async (): Promise<Ativo[]> => {
+    const { data: auth } = await supabase.auth.getSession();
+    if (!auth.session?.user) return [];
+    const { data, error } = await supabase
+      .from('ativos')
+      .select('id, nome, categoria, classe_ativo, quantidade, data_compra, valor_compra_unitario, valor_atual_unitario, observacao, created_at, updated_at')
+      .eq('user_id', auth.session.user.id)
+      .order('data_compra', { ascending: false });
+    if (error) {
+      console.error('getAllAtivos error:', error);
       return [];
     }
+    return (data || []).map((r: any) => ({
+      id: r.id,
+      nome: r.nome,
+      categoria: r.categoria as CategoriaAtivo,
+      classe_ativo: r.classe_ativo,
+      quantidade: Number(r.quantidade),
+      data_compra: r.data_compra,
+      valor_compra_unitario: Number(r.valor_compra_unitario),
+      valor_atual_unitario: Number(r.valor_atual_unitario),
+      observacao: r.observacao || undefined,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    }));
   },
 
-  saveAtivos: (ativos: Ativo[]): void => {
-    try {
-      window.localStorage.setItem('ativos', JSON.stringify(ativos));
-    } catch (error) {
-      console.error('Error saving ativos to localStorage:', error);
-    }
-  },
+  saveAtivos: async (_ativos: Ativo[]): Promise<void> => { /* deprecated */ },
 
-  createAtivo: (ativoData: Omit<Ativo, 'id' | 'createdAt' | 'updatedAt'>): Ativo => {
-    return {
+  createAtivo: async (ativoData: Omit<Ativo, 'id' | 'createdAt' | 'updatedAt'>): Promise<Ativo | null> => {
+    const { data: auth } = await supabase.auth.getSession();
+    if (!auth.session?.user) return null;
+    const payload = {
       ...ativoData,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      user_id: auth.session.user.id,
+    } as any;
+    const { data, error } = await supabase
+      .from('ativos')
+      .insert(payload)
+      .select('id, nome, categoria, classe_ativo, quantidade, data_compra, valor_compra_unitario, valor_atual_unitario, observacao, created_at, updated_at')
+      .single();
+    if (error) {
+      console.error('createAtivo error:', error);
+      return null;
+    }
+    return {
+      id: data.id,
+      nome: data.nome,
+      categoria: data.categoria as CategoriaAtivo,
+      classe_ativo: data.classe_ativo,
+      quantidade: Number(data.quantidade),
+      data_compra: data.data_compra,
+      valor_compra_unitario: Number(data.valor_compra_unitario),
+      valor_atual_unitario: Number(data.valor_atual_unitario),
+      observacao: data.observacao || undefined,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
     };
   },
 
-  updateAtivo: (ativo: Ativo): Ativo => {
+  updateAtivo: async (ativo: Ativo): Promise<Ativo | null> => {
+    const { data: auth } = await supabase.auth.getSession();
+    if (!auth.session?.user) return null;
+    const { data, error } = await supabase
+      .from('ativos')
+      .update({
+        nome: ativo.nome,
+        categoria: ativo.categoria,
+        classe_ativo: ativo.classe_ativo,
+        quantidade: ativo.quantidade,
+        data_compra: ativo.data_compra,
+        valor_compra_unitario: ativo.valor_compra_unitario,
+        valor_atual_unitario: ativo.valor_atual_unitario,
+        observacao: ativo.observacao ?? null,
+      })
+      .eq('id', ativo.id)
+      .eq('user_id', auth.session.user.id)
+      .select('id, nome, categoria, classe_ativo, quantidade, data_compra, valor_compra_unitario, valor_atual_unitario, observacao, created_at, updated_at')
+      .single();
+    if (error) {
+      console.error('updateAtivo error:', error);
+      return null;
+    }
     return {
-      ...ativo,
-      updatedAt: new Date().toISOString()
+      id: data.id,
+      nome: data.nome,
+      categoria: data.categoria as CategoriaAtivo,
+      classe_ativo: data.classe_ativo,
+      quantidade: Number(data.quantidade),
+      data_compra: data.data_compra,
+      valor_compra_unitario: Number(data.valor_compra_unitario),
+      valor_atual_unitario: Number(data.valor_atual_unitario),
+      observacao: data.observacao || undefined,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
     };
   },
 

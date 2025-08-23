@@ -3,6 +3,7 @@ import PerfilPage from './PerfilPage';
 import { useCategories } from '@/hooks/useCategories';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useCards } from '@/hooks/useCards';
+import { useInvestments } from '@/hooks/useInvestments';
 import { useAppContext } from '@/context/AppContext';
 import { Settings } from '@/types/types';
 import { CATEGORIAS_PADRAO } from '@/constants.tsx';
@@ -12,6 +13,7 @@ export default function PerfilPageWrapper() {
   const { categorias, addCategoria, updateCategoria, deleteCategoria } = useCategories();
   const { transacoes } = useTransactions();
   const { compras, parcelas } = useCards();
+  const { objetivos } = useInvestments();
   const { settings, setSettings, openModal, modalState, setModalState, selectedMonth, setSelectedMonth, setConfirmation, showToast } = useAppContext() as any;
 
   const handleDeleteAllData = () => {
@@ -122,6 +124,7 @@ export default function PerfilPageWrapper() {
       transacoes={transacoes}
       compras={compras}
       parcelas={parcelas}
+      objetivos={objetivos}
       addCategoria={addCategoria}
       updateCategoria={updateCategoria}
       deleteCategoria={deleteCategoria}

@@ -6,11 +6,11 @@ interface InvestmentsContextType {
   objetivos: ObjetivoInvestimento[];
   ativos: Ativo[];
   alocacoes: Alocacao[];
-  addObjetivo: (obj: Omit<ObjetivoInvestimento, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateObjetivo: (obj: ObjetivoInvestimento) => void;
+  addObjetivo: (obj: Omit<ObjetivoInvestimento, 'id' | 'createdAt' | 'updatedAt'>) => Promise<ObjetivoInvestimento | null>;
+  updateObjetivo: (obj: ObjetivoInvestimento) => Promise<ObjetivoInvestimento | null>;
   deleteObjetivo: (id: string) => void;
-  addAtivo: (ativoData: Omit<Ativo, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateAtivo: (ativo: Ativo) => void;
+  addAtivo: (ativoData: Omit<Ativo, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Ativo | null>;
+  updateAtivo: (ativo: Ativo) => Promise<Ativo | null>;
   deleteAtivo: (ativoId: string) => void;
   setAlocacoesParaAtivo: (ativoId: string, novasAlocacoes: Omit<Alocacao, 'id' | 'ativo_id'>[]) => void;
   addInvestmentTransaction: (txData: Omit<TransacaoBanco, 'id' | 'createdAt' | 'updatedAt' | 'tipo'>, categoria: Categoria) => TransacaoBanco | null;
@@ -31,30 +31,25 @@ export const InvestmentsProvider: React.FC<InvestmentsProviderProps> = ({ childr
   const [ativos, setAtivos] = useState<Ativo[]>([]);
   const [alocacoes, setAlocacoes] = useState<Alocacao[]>([]);
 
-  // Load data from localStorage on mount
+  // Load data from Supabase on mount
   useEffect(() => {
-    const loadedObjetivos = investmentsService.getAllObjetivos();
-    setObjetivos(loadedObjetivos);
+    (async () => {
+      const loadedObjetivos = await investmentsService.getAllObjetivos();
+      setObjetivos(loadedObjetivos);
+    })();
 
-    const loadedAtivos = investmentsService.getAllAtivos();
-    setAtivos(loadedAtivos);
+    (async () => {
+      const loadedAtivos = await investmentsService.getAllAtivos();
+      setAtivos(loadedAtivos);
+    })();
 
     const loadedAlocacoes = investmentsService.getAllAlocacoes();
     setAlocacoes(loadedAlocacoes);
   }, []);
 
-  // Save to localStorage whenever data changes
-  useEffect(() => {
-    if (objetivos.length >= 0) {
-      investmentsService.saveObjetivos(objetivos);
-    }
-  }, [objetivos]);
+  // Persistência passa a ser feita diretamente no serviço (Supabase)
 
-  useEffect(() => {
-    if (ativos.length >= 0) {
-      investmentsService.saveAtivos(ativos);
-    }
-  }, [ativos]);
+  // Persistência agora é feita diretamente no serviço (Supabase)
 
   useEffect(() => {
     if (alocacoes.length >= 0) {
@@ -62,14 +57,16 @@ export const InvestmentsProvider: React.FC<InvestmentsProviderProps> = ({ childr
     }
   }, [alocacoes]);
 
-  const addObjetivo = (obj: Omit<ObjetivoInvestimento, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newObj = investmentsService.createObjetivo(obj);
-    setObjetivos(prev => [...prev, newObj]);
+  const addObjetivo = async (obj: Omit<ObjetivoInvestimento, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const newObj = await investmentsService.createObjetivo(obj);
+    if (newObj) setObjetivos(prev => [...prev, newObj]);
+    return newObj;
   };
 
-  const updateObjetivo = (obj: ObjetivoInvestimento) => {
-    const updatedObj = investmentsService.updateObjetivo(obj);
-    setObjetivos(prev => prev.map(o => o.id === obj.id ? updatedObj : o));
+  const updateObjetivo = async (obj: ObjetivoInvestimento) => {
+    const updatedObj = await investmentsService.updateObjetivo(obj);
+    if (updatedObj) setObjetivos(prev => prev.map(o => o.id === obj.id ? updatedObj : o));
+    return updatedObj;
   };
 
   const deleteObjetivo = (id: string) => {
@@ -77,14 +74,16 @@ export const InvestmentsProvider: React.FC<InvestmentsProviderProps> = ({ childr
     setAlocacoes(prev => prev.filter(a => a.objetivo_id !== id));
   };
 
-  const addAtivo = (ativoData: Omit<Ativo, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newAtivo = investmentsService.createAtivo(ativoData);
-    setAtivos(prev => [...prev, newAtivo]);
+  const addAtivo = async (ativoData: Omit<Ativo, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const newAtivo = await investmentsService.createAtivo(ativoData);
+    if (newAtivo) setAtivos(prev => [...prev, newAtivo]);
+    return newAtivo;
   };
 
-  const updateAtivo = (ativo: Ativo) => {
-    const updatedAtivo = investmentsService.updateAtivo(ativo);
-    setAtivos(prev => prev.map(a => a.id === ativo.id ? updatedAtivo : a));
+  const updateAtivo = async (ativo: Ativo) => {
+    const updatedAtivo = await investmentsService.updateAtivo(ativo);
+    if (updatedAtivo) setAtivos(prev => prev.map(a => a.id === ativo.id ? updatedAtivo : a));
+    return updatedAtivo;
   };
 
   const deleteAtivo = (ativoId: string) => {

@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ObjetivoInvestimento, ModalState, Ativo, Alocacao, NavigationState, CategoriaAtivo, TransacaoBanco, ContaBancaria, Categoria, TipoCategoria } from '@/types/types';
 import Modal from '@/components/Modal';
-import { Plus, Pencil, Trash2, PiggyBank, TrendingUp, MoreVertical, SlidersHorizontal, Package, Flame, Globe, ChevronDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, PiggyBank, TrendingUp, MoreVertical, SlidersHorizontal, Package, Flame, Globe, ChevronDown, Info } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/utils/format';
 import CurrencyInput from '@/components/CurrencyInput';
 import DoughnutChart from '@/components/DoughnutChart';
@@ -12,8 +12,8 @@ const getTodayString = () => new Date().toISOString().split('T')[0];
 
 interface InvestimentosPageProps {
   objetivos: ObjetivoInvestimento[];
-  addObjetivo: (objetivo: Omit<ObjetivoInvestimento, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateObjetivo: (objetivo: ObjetivoInvestimento) => void;
+  addObjetivo: (objetivo: Omit<ObjetivoInvestimento, 'id' | 'createdAt' | 'updatedAt'>) => Promise<ObjetivoInvestimento | null>;
+  updateObjetivo: (objetivo: ObjetivoInvestimento) => Promise<ObjetivoInvestimento | null>;
   deleteObjetivo: (id: string) => void;
   
   ativos: Ativo[];
@@ -106,16 +106,9 @@ const InvestimentosPage: React.FC<InvestimentosPageProps> = (props) => {
                     updateObjetivo={props.updateObjetivo}
                 />
             )}
-             {modal?.type === 'ativo-step1' && (
-                <ChooseAssetTypeModal
-                    onClose={handleCloseModal}
-                    onSelect={(categoria) => handleOpenModal('ativo', { categoria })}
-                />
-            )}
             {modal?.type === 'ativo' && (
                 <AddOrEditAtivoModal 
                     ativoToEdit={modal.data?.id ? modal.data : null}
-                    categoria={modal.data.categoria}
                     onClose={handleCloseModal}
                     addAtivo={props.addAtivo}
                     updateAtivo={props.updateAtivo}
@@ -259,7 +252,7 @@ const MeusAtivosTab: React.FC<Pick<InvestimentosPageProps, 'ativos' | 'deleteAti
     return (
         <div className="space-y-4">
             <div className="flex justify-end">
-                <button onClick={() => openModal('ativo-step1')} className="bg-gradient-to-r from-[#19CF67] to-[#00DE5F] hover:from-[#16B359] hover:to-[#00C454] text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2">
+                <button onClick={() => openModal('ativo')} className="bg-gradient-to-r from-[#19CF67] to-[#00DE5F] hover:from-[#16B359] hover:to-[#00C454] text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2">
                     <Plus size={20} />
                     <span>Adicionar Ativo</span>
                 </button>
@@ -384,7 +377,7 @@ const AddOrEditObjetivoModal: React.FC<AddOrEditObjetivoModalProps> = ({ objetiv
         }
     }, [objetivoToEdit]);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const data = {
             nome: formState.nome,
@@ -392,10 +385,10 @@ const AddOrEditObjetivoModal: React.FC<AddOrEditObjetivoModalProps> = ({ objetiv
             data_meta: formState.data_meta,
         };
         if (objetivoToEdit) {
-          updateObjetivo({ ...objetivoToEdit, ...data });
+          await updateObjetivo({ ...objetivoToEdit, ...data });
         }
         else {
-          addObjetivo(data);
+          await addObjetivo(data);
         }
         onClose();
     };
@@ -442,12 +435,12 @@ const ChooseAssetTypeModal: React.FC<{ onClose: () => void, onSelect: (cat: Cate
 
 interface AddOrEditAtivoModalProps {
   ativoToEdit: Ativo | null;
-  categoria: CategoriaAtivo;
   onClose: () => void;
   addAtivo: InvestimentosPageProps['addAtivo'];
   updateAtivo: InvestimentosPageProps['updateAtivo'];
 }
-const AddOrEditAtivoModal: React.FC<AddOrEditAtivoModalProps> = ({ ativoToEdit, categoria, onClose, addAtivo, updateAtivo }) => {
+const AddOrEditAtivoModal: React.FC<AddOrEditAtivoModalProps> = ({ ativoToEdit, onClose, addAtivo, updateAtivo }) => {
+    const [activeType, setActiveType] = useState<CategoriaAtivo>(CategoriaAtivo.RendaVariavel);
     const [form, setForm] = useState({ nome: '', classe_ativo: '', quantidade: '1', data_compra: getTodayString(), valor_compra_unitario: '', valor_atual_unitario: '', observacao: '' });
 
     useEffect(() => {
@@ -461,15 +454,37 @@ const AddOrEditAtivoModal: React.FC<AddOrEditAtivoModalProps> = ({ ativoToEdit, 
             observacao: ativoToEdit.observacao || ''
         });
         else setForm(f => ({...f, valor_compra_unitario: '', valor_atual_unitario: ''}));
+        if (ativoToEdit) setActiveType(ativoToEdit.categoria);
     }, [ativoToEdit]);
+
+    // Sugestões por tipo
+    const classSuggestions: Record<CategoriaAtivo, string[]> = {
+        [CategoriaAtivo.RendaVariavel]: ['Ação', 'FII', 'ETF'],
+        [CategoriaAtivo.RendaFixa]: ['CDB', 'Tesouro', 'LCI/LCA'],
+        [CategoriaAtivo.Outros]: ['Cripto', 'Fundos', 'Previdência']
+    };
+
+    // Placeholder dinâmico para a classe (lista de opções comuns por tipo)
+    const classePlaceholder = useMemo(() => classSuggestions[activeType].join(', '), [activeType]);
+
+    // Heurística simples: detectar classe pelo ticker/nome
+    useEffect(() => {
+        if (!form.nome || ativoToEdit) return;
+        const upper = form.nome.toUpperCase();
+        if (/^[A-Z]{4}[0-9]$/.test(upper)) setForm(f => ({ ...f, classe_ativo: 'Ação' }));
+        else if (upper.endsWith('11')) setForm(f => ({ ...f, classe_ativo: 'FII' }));
+        else if (upper.includes('TESOURO')) setForm(f => ({ ...f, classe_ativo: 'Tesouro' }));
+        else if (upper.includes('CDB')) setForm(f => ({ ...f, classe_ativo: 'CDB' }));
+        else if (upper.includes('BTC') || upper.includes('ETH') || upper.includes('CRYPTO')) setForm(f => ({ ...f, classe_ativo: 'Cripto' }));
+    }, [form.nome, ativoToEdit]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const data: Omit<Ativo, 'id' | 'createdAt' | 'updatedAt'> = {
-            categoria,
+            categoria: activeType,
             nome: form.nome,
             classe_ativo: form.classe_ativo,
-            quantidade: parseFloat(form.quantidade) || 0,
+            quantidade: parseInt(form.quantidade, 10) || 0,
             data_compra: form.data_compra,
             valor_compra_unitario: parseFloat(form.valor_compra_unitario) / 100 || 0,
             valor_atual_unitario: parseFloat(form.valor_atual_unitario) / 100 || 0,
@@ -483,44 +498,87 @@ const AddOrEditAtivoModal: React.FC<AddOrEditAtivoModalProps> = ({ ativoToEdit, 
         onClose();
     };
 
-    const labelClasses = "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1";
-    const inputClasses = "w-full bg-gray-100 dark:bg-gray-700 p-2 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#19CF67]";
+    const labelClasses = "block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1";
+    const inputClasses = "w-full bg-gray-100 dark:bg-gray-700 p-2 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#19CF67] h-12";
+
+    // Mini preview
+    const qtd = parseInt(form.quantidade || '0', 10) || 0;
+    const vCompra = (parseFloat(form.valor_compra_unitario || '0') / 100) || 0;
+    const vAtual = (parseFloat(form.valor_atual_unitario || '0') / 100) || 0;
+    const totalInvestido = qtd * vCompra;
+    const totalAtual = qtd * vAtual;
+    const rentAbs = totalAtual - totalInvestido;
+    const rentPerc = totalInvestido > 0 ? (rentAbs / totalInvestido) * 100 : 0;
+    const rentColor = rentAbs >= 0 ? 'text-green-500 dark:text-green-400' : 'text-red-500 dark:text-red-400';
 
     return (
          <Modal
-            isOpen={true} onClose={onClose} title={`${ativoToEdit ? 'Editar' : 'Adicionar'} Ativo de ${categoria}`}
-            footer={<> <button type="button" onClick={onClose} className="bg-gray-600 text-white px-4 py-2 rounded-lg">Cancelar</button> <button type="submit" form="ativo-form" className="bg-gradient-to-r from-[#19CF67] to-[#00DE5F] text-white px-4 py-2 rounded-lg font-semibold">Salvar</button> </>}
+            isOpen={true} onClose={onClose} title={`${ativoToEdit ? 'Editar' : 'Adicionar'} Ativo de ${activeType}`}
+            footer={<> <button type="button" onClick={onClose} className="border border-gray-400 text-gray-800 dark:text-white dark:border-gray-600 px-4 py-2 rounded-lg bg-transparent">Cancelar</button> <button type="submit" form="ativo-form" className="bg-gradient-to-r from-[#19CF67] to-[#00DE5F] text-white px-4 py-2 rounded-lg font-semibold">{ativoToEdit ? 'Salvar Alterações' : 'Adicionar Ativo'}</button> </>}
         >
             <form id="ativo-form" onSubmit={handleSubmit}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div> 
+                {/* Abas de tipo */}
+                <div className="mb-4 flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+                    {[CategoriaAtivo.RendaVariavel, CategoriaAtivo.RendaFixa, CategoriaAtivo.Outros].map(tab => (
+                        <button type="button" key={tab} onClick={() => setActiveType(tab)} className={`flex-1 mx-1 px-3 py-2 rounded-md text-sm font-semibold text-center ${activeType === tab ? 'bg-gradient-to-r from-[#19CF67] to-[#00DE5F] text-white' : 'text-gray-600 dark:text-gray-300'}`}>
+                            {tab}
+                        </button>
+                    ))}
+                </div>
+                {/* Conteúdo rolável no mobile */}
+                <div className="max-h-[65vh] overflow-y-auto pr-1">
+                <div className="grid grid-cols-12 gap-4">
+                    <div className="col-span-12"> 
                         <label className={labelClasses}>Nome do Ativo (Ticker)</label> 
                         <input type="text" value={form.nome} onChange={e => setForm({...form, nome: e.target.value})} className={inputClasses} required placeholder="Ex: PETR4" /> 
                     </div>
-                    <div> 
-                        <label className={labelClasses}>Classe do Ativo</label> 
-                        <input type="text" value={form.classe_ativo} onChange={e => setForm({...form, classe_ativo: e.target.value})} className={inputClasses} required placeholder="Ex: Ação, FII" /> 
+                    <div className="col-span-12"> 
+                        <label className={labelClasses}>Classe do Ativo <span title="Classe é a categoria do ativo, ex: Ação, FII, ETF, CDB, Cripto…" className="inline-flex align-middle ml-1 text-gray-400"><Info size={14} /></span></label> 
+                        <input type="text" value={form.classe_ativo} onChange={e => setForm({...form, classe_ativo: e.target.value})} className={inputClasses} required placeholder={classePlaceholder} /> 
                     </div>
-                    <div> 
-                        <label className={labelClasses}>Quantidade</label> 
-                        <input type="number" value={form.quantidade} onChange={e => setForm({...form, quantidade: e.target.value})} className={inputClasses} step="any" required /> 
+                    {/* Quantidade e Data: lado a lado no mobile e desktop */}
+                    <div className="col-span-12 grid grid-cols-2 gap-4"> 
+                        <div>
+                            <label className={labelClasses}>Quantidade</label> 
+                            <input type="number" value={form.quantidade} onChange={e => setForm({...form, quantidade: e.target.value})} className={inputClasses} step="1" min="0" inputMode="numeric" pattern="[0-9]*" required /> 
+                        </div>
+                        <div>
+                            <label className={labelClasses}>Data da Compra</label> 
+                            <input type="date" value={form.data_compra} onChange={e => setForm({...form, data_compra: e.target.value})} className={inputClasses} required /> 
+                        </div>
                     </div>
-                    <div> 
-                        <label className={labelClasses}>Data da Compra</label> 
-                        <input type="date" value={form.data_compra} onChange={e => setForm({...form, data_compra: e.target.value})} className={inputClasses} required /> 
+                    {/* Valor de Compra e Valor Atual: lado a lado no mobile e desktop */}
+                    <div className="col-span-12 grid grid-cols-2 gap-4"> 
+                        <div>
+                            <label className={labelClasses}>Valor de Compra (Unitário)</label> 
+                            <CurrencyInput value={form.valor_compra_unitario} onValueChange={v => setForm({...form, valor_compra_unitario: v})} className={inputClasses} required /> 
+                        </div>
+                        <div>
+                            <label className={labelClasses}>Valor Atual (Unitário)</label> 
+                            <CurrencyInput value={form.valor_atual_unitario} onValueChange={v => setForm({...form, valor_atual_unitario: v})} className={inputClasses} required /> 
+                        </div>
                     </div>
-                    <div> 
-                        <label className={labelClasses}>Valor de Compra (Unitário)</label> 
-                        <CurrencyInput value={form.valor_compra_unitario} onValueChange={v => setForm({...form, valor_compra_unitario: v})} className={inputClasses} required /> 
-                    </div>
-                    <div> 
-                        <label className={labelClasses}>Valor Atual (Unitário)</label> 
-                        <CurrencyInput value={form.valor_atual_unitario} onValueChange={v => setForm({...form, valor_atual_unitario: v})} className={inputClasses} required /> 
-                    </div>
-                    <div className="sm:col-span-2"> 
+                    <div className="col-span-12"> 
                         <label className={labelClasses}>Observação (Opcional)</label> 
                         <input type="text" value={form.observacao} onChange={e => setForm({...form, observacao: e.target.value})} className={inputClasses} /> 
                     </div>
+                </div>
+
+                {/* Mini preview */}
+                <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
+                    <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-2">
+                        <div className="text-gray-500 dark:text-gray-300">Total investido</div>
+                        <div className="font-semibold text-gray-900 dark:text-white">{formatCurrency(totalInvestido)}</div>
+                    </div>
+                    <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-2">
+                        <div className="text-gray-500 dark:text-gray-300">Valor atual</div>
+                        <div className="font-semibold text-gray-900 dark:text-white">{formatCurrency(totalAtual)}</div>
+                    </div>
+                    <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-2">
+                        <div className="text-gray-500 dark:text-gray-300">Rentabilidade</div>
+                        <div className={`font-semibold ${rentColor}`}>{formatCurrency(rentAbs)} ({rentPerc.toFixed(2)}%)</div>
+                    </div>
+                </div>
                 </div>
             </form>
         </Modal>

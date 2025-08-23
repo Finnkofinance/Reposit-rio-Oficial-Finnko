@@ -3,8 +3,8 @@ import React, { useMemo } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatCurrency } from '@/utils/format';
 
-// Paleta focada em despesas: do vermelho escuro ao laranja claro (maior gasto = cor mais escura)
-const EXPENSE_COLORS = ['#991B1B','#B91C1C','#DC2626','#EF4444','#F87171','#FB7185','#FB923C','#FDBA74'];
+// Paleta em tons de verde (maior valor = verde mais escuro)
+const GREEN_SCALE = ['#065F46','#0F766E','#15803D','#16A34A','#22C55E','#4ADE80','#86EFAC','#BBF7D0'];
 const OTHERS_COLOR = '#9CA3AF';
 
 type Row = { categoria: string; valor: number };
@@ -74,7 +74,7 @@ export default function DoughnutChart({ rows, onLegendClick }: Props) {
               isAnimationActive={false}
             >
               {dataForChart.map((entry, i) => {
-                const color = entry.categoria === 'Outras' ? OTHERS_COLOR : EXPENSE_COLORS[i % EXPENSE_COLORS.length];
+                const color = entry.categoria === 'Outras' ? OTHERS_COLOR : GREEN_SCALE[i % GREEN_SCALE.length];
                 return <Cell key={`cell-${i}`} fill={color} />;
               })}
             </Pie>
@@ -82,7 +82,7 @@ export default function DoughnutChart({ rows, onLegendClick }: Props) {
           </PieChart>
         </ResponsiveContainer>
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <span className="text-gray-500 dark:text-slate-400 text-sm">Total de Despesas</span>
+          <span className="text-gray-500 dark:text-slate-400 text-sm">Total</span>
           <span className="text-gray-900 dark:text-white font-extrabold text-2xl">{formatCurrency(total)}</span>
         </div>
       </div>
@@ -97,7 +97,7 @@ export default function DoughnutChart({ rows, onLegendClick }: Props) {
             title={d.categoria === 'Outras' ? 'Categoria agregada' : `Ver detalhes de ${d.categoria}`}
           >
             <div className="flex items-center gap-3 min-w-0">
-              <span className="inline-block w-3.5 h-3.5 rounded-full shrink-0" style={{ background: d.categoria === 'Outras' ? OTHERS_COLOR : EXPENSE_COLORS[i % EXPENSE_COLORS.length] }} />
+              <span className="inline-block w-3.5 h-3.5 rounded-full shrink-0" style={{ background: d.categoria === 'Outras' ? OTHERS_COLOR : GREEN_SCALE[i % GREEN_SCALE.length] }} />
               <span className="truncate text-gray-800 dark:text-slate-100">{d.categoria}</span>
             </div>
             <div className="text-right shrink-0">
