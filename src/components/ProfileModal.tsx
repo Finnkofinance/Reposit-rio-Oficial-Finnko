@@ -88,6 +88,25 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     } catch {}
   };
 
+  const attemptClose = () => {
+    if (isDirty) {
+      try {
+        setConfirmation({
+          title: 'Alterações não salvas',
+          message: 'Você fez mudanças no seu perfil. Deseja sair sem salvar?',
+          buttons: [
+            { label: 'Continuar editando', style: 'secondary', onClick: () => setConfirmation(null) },
+            { label: 'Descartar alterações', style: 'danger', onClick: () => { setConfirmation(null); onClose(); } },
+          ],
+        });
+      } catch {
+        onClose();
+      }
+      return;
+    }
+    onClose();
+  };
+
   const isValidEmail = (value: string | null) => {
     if (!value) return true;
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
@@ -218,12 +237,12 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     <>
       <Modal
         isOpen={isOpen}
-        onClose={onClose}
+        onClose={attemptClose}
         title="Meu Perfil"
         footer={
           <>
-            <button onClick={onClose} className="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
-            {showForm && (
+            <button onClick={attemptClose} className="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
+            {isDirty && (
               <button onClick={save} disabled={loading || hasErrors || !isDirty} className={`bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg ${(loading || hasErrors || !isDirty) ? 'opacity-70 cursor-not-allowed' : ''}`}>{loading ? 'Salvando...' : 'Salvar'}</button>
             )}
           </>
