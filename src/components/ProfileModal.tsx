@@ -5,6 +5,7 @@ import { profilesService, type Profile, type EmploymentType } from '@/services/p
 import { supabase } from '@/lib/supabaseClient';
 import { useAppContext } from '@/context/AppContext';
 import { Crown, CheckCircle2, ChevronRight, CalendarDays, User2, Gift, LogOut } from 'lucide-react';
+import PremiumCheckoutModal from '@/components/PremiumCheckoutModal';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -18,7 +19,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const [initialLoaded, setInitialLoaded] = useState(false);
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const { showToast, setProfilePicture, setConfirmation } = useAppContext() as any;
+  const { showToast, setProfilePicture, setConfirmation, modalState, setModalState } = useAppContext() as any;
   const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [showForm, setShowForm] = useState<boolean>(false);
 
@@ -43,48 +44,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
 
   const openPremiumModal = () => {
     try {
-      const features: string[] = [
-        'Planos de Futuro para organizar e alcançar suas metas financeiras',
-        'Recomendações de Investimentos alinhadas ao seu perfil e objetivos',
-        'Assessor Pessoal IA disponível 24/7 para dúvidas e orientações',
-        'Integração Bancária Avançada com múltiplos bancos e cartões em tempo real',
-        'Aulas Exclusivas com Bráulio Neves – duas vezes por mês, com insights e estratégias financeiras',
-      ];
-      setConfirmation({
-        title: 'Seja Premium',
-        message: (
-          <div className="space-y-4">
-            <p className="text-gray-100 font-medium">Desbloqueie todo o potencial do Finnko:</p>
-            <ul className="space-y-2.5">
-              {features.map((f, i) => (
-                <li
-                  key={i}
-                  className="flex items-center gap-3 rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2 transition-colors hover:bg-amber-400/10"
-                >
-                  <span className="inline-flex items-center justify-center rounded-full bg-amber-500/10 p-1.5 text-amber-400">
-                    <CheckCircle2 size={18} />
-                  </span>
-                  <span className="text-gray-100 text-[14px] leading-relaxed">{f}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="text-[11px] text-gray-400">Assinatura simples, cancele quando quiser.</p>
-          </div>
-        ),
-        buttons: [
-          { label: 'Agora não', style: 'secondary', onClick: () => setConfirmation(null) },
-          { 
-            label: 'Quero agora', 
-            style: 'primary', 
-            onClick: () => { 
-              setConfirmation(null);
-              try {
-                window.open('https://finnko.app/premium', '_blank');
-              } catch {}
-            } 
-          },
-        ],
-      });
+      setModalState({ modal: 'premium-checkout', data: null });
     } catch {}
   };
 
@@ -341,6 +301,9 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
               <ChevronRight size={18} className="text-gray-400" />
             </button>
           </div>
+          {modalState?.modal === 'premium-checkout' && (
+            <PremiumCheckoutModal isOpen={true} onClose={() => setModalState({ modal: null, data: null })} />
+          )}
 
           {/* Acordeão: Meu cadastro */}
           <div className={`overflow-hidden transition-all ${showForm ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>

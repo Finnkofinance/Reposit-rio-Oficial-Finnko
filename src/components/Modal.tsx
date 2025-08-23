@@ -8,20 +8,21 @@ interface ModalProps {
   children: React.ReactNode;
   footer?: React.ReactNode;
   zIndexClass?: string;
+  overlayClassName?: string;
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer, zIndexClass }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer, zIndexClass, overlayClassName }) => {
   if (!isOpen) return null;
 
   return (
     <div 
-      className={`fixed inset-0 bg-black bg-opacity-60 dark:bg-opacity-70 ${zIndexClass || 'z-50'} flex justify-center items-center`} 
+      className={`fixed inset-0 ${overlayClassName || 'bg-black bg-opacity-60 dark:bg-opacity-70'} ${zIndexClass || 'z-50'} flex justify-center items-center`}
       onClick={onClose}
       aria-modal="true"
       role="dialog"
     >
       <div 
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md m-4 animate-fade-in-up max-h-[90vh] flex flex-col overflow-hidden" 
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg md:max-w-xl mx-4 my-0 animate-fade-in-up max-h-[90vh] flex flex-col overflow-hidden" 
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6 flex-1 overflow-y-auto">

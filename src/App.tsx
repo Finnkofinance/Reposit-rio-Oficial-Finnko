@@ -17,6 +17,7 @@ import EditarCompraCartaoModal from '@/components/EditarCompraCartaoModal';
 import ImageCropModal from '@/components/ImageCropModal';
 import SearchModal from '@/components/SearchModal';
 import ProfileModal from '@/components/ProfileModal';
+import PremiumCheckoutModal from '@/components/PremiumCheckoutModal';
 
 // Context
 import { AppProvider } from '@/context/AppContext';
@@ -316,6 +317,9 @@ const Layout = () => {
                 {imageToCrop && <ImageCropModal imageSrc={imageToCrop} onClose={() => setImageToCrop(null)} onSave={handleSetProfilePicture} />}
                 {modalState.modal === 'profile' && (
                     <ProfileModal isOpen={true} onClose={closeModal} />
+                )}
+                {modalState.modal === 'premium-checkout' && (
+                    <PremiumCheckoutModal isOpen={true} onClose={closeModal} />
                 )}
                 
                 <SearchModal 
