@@ -21,10 +21,10 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
       role="dialog"
     >
       <div 
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md m-4 animate-fade-in-up" 
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md m-4 animate-fade-in-up max-h-[90vh] flex flex-col overflow-hidden" 
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-6">
+        <div className="p-6 flex-1 overflow-y-auto">
             <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 pb-4 mb-6">
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{title}</h3>
               <button onClick={onClose} className="text-gray-400 hover:text-gray-800 dark:hover:text-white" aria-label="Close modal">

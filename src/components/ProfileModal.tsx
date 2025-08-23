@@ -249,29 +249,27 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
         }
       >
         <div className="space-y-6">
-          {/* Header */}
-          <div className="flex flex-col items-center text-center gap-2">
-            <div className="w-20 h-20 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center ring-2 ring-gray-600/40">
-              {(avatarPreview || form.avatar_url) ? (
-                <img src={avatarPreview || form.avatar_url || ''} alt="Avatar" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-gray-500 text-xs">Sem foto</span>
-              )}
-            </div>
-            <div className="flex items-center space-x-2">
-              <label className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-white px-3 py-1.5 rounded-lg cursor-pointer text-sm">
+          {/* Header compacto */}
+          <div className="flex items-center gap-4 pb-6">
+            <div className="relative shrink-0 h-20 w-20">
+              <div className="absolute inset-0 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center ring-1 ring-white/10">
+                {(avatarPreview || form.avatar_url) ? (
+                  <img src={avatarPreview || form.avatar_url || ''} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-gray-500 text-xs">Sem foto</span>
+                )}
+              </div>
+              <label className="absolute top-full left-1/2 -translate-x-1/2 translate-y-1 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-900 dark:text-white px-3 py-1 rounded-full cursor-pointer text-[12px] font-normal shadow-sm whitespace-nowrap">
                 <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
                 Mudar foto
               </label>
-              {form.avatar_url && (
-                <button onClick={() => setForm(prev => ({ ...prev, avatar_url: null }))} className="text-xs text-red-500 hover:underline">Remover</button>
-              )}
             </div>
-            <div className="mt-1">
-              <div className="text-base font-semibold text-white">{form.full_name || 'Seu nome'}</div>
-              <div className="text-xs text-gray-400">{form.email || '-'}</div>
+            <div className="min-w-0 self-center flex flex-col justify-center">
+              <div className="text-xl md:text-2xl font-semibold text-white leading-tight tracking-tight">{form.full_name || 'Seu nome'}</div>
+              <div className="text-sm text-gray-400 truncate mt-0">{form.email || '-'}</div>
             </div>
           </div>
+          {/* Botão Remover retirado para manter foco em ação única */}
 
           {/* Card de status e data de cadastro */}
           <div className="flex items-center justify-between rounded-xl border border-gray-600/40 bg-gray-800/60 px-4 py-3">
@@ -303,7 +301,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
               <div className="w-full flex justify-center">
                 <button
                   onClick={openPremiumModal}
-                  className="inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-gray-900 font-semibold px-4 py-2 shadow-[0_8px_30px_rgba(255,199,0,0.25)] ring-1 ring-amber-300/40 hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 active:scale-[0.99] transition"
+                  className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500 text-gray-900 font-semibold px-3.5 py-1.5 text-sm shadow-[0_6px_24px_rgba(255,199,0,0.35)] ring-1 ring-amber-300/60 hover:from-amber-300 hover:to-yellow-500 hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 active:scale-[0.98] transition"
                 >
                   Conhecer benefícios
                   <ChevronRight size={18} className="ml-1.5" />
