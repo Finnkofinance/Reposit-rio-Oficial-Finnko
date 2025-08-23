@@ -33,6 +33,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ data, onClose }) 
             isOpen={true} 
             onClose={onClose} 
             title={data.title}
+            zIndexClass="z-[100]"
             footer={
                 <>
                     {data.buttons.map((btn, index) => (

@@ -16,6 +16,7 @@ import NovaCompraCartaoModal from '@/components/NovaCompraCartaoModal';
 import EditarCompraCartaoModal from '@/components/EditarCompraCartaoModal';
 import ImageCropModal from '@/components/ImageCropModal';
 import SearchModal from '@/components/SearchModal';
+import ProfileModal from '@/components/ProfileModal';
 
 // Context
 import { AppProvider } from '@/context/AppContext';
@@ -313,6 +314,9 @@ const Layout = () => {
                 {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
                 {confirmation && <ConfirmationModal data={confirmation} onClose={() => setConfirmation(null)} />}
                 {imageToCrop && <ImageCropModal imageSrc={imageToCrop} onClose={() => setImageToCrop(null)} onSave={handleSetProfilePicture} />}
+                {modalState.modal === 'profile' && (
+                    <ProfileModal isOpen={true} onClose={closeModal} />
+                )}
                 
                 <SearchModal 
                     isOpen={isSearchModalOpen} 

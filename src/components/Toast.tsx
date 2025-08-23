@@ -33,7 +33,7 @@ const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
   const { bgColor, Icon } = config[type] || config.info;
 
   return (
-    <div className={`fixed top-6 right-6 z-50 flex items-center p-4 rounded-lg text-white shadow-lg animate-fade-in-down ${bgColor}`}>
+    <div className={`fixed top-6 right-6 z-[120] flex items-center p-4 rounded-lg text-white shadow-lg animate-fade-in-down ${bgColor}`}>
       <Icon size={24} className="mr-3 flex-shrink-0" />
       <span className="text-sm font-medium">{message}</span>
     </div>

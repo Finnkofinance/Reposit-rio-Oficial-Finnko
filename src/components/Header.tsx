@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Page } from '@/types/types';
 import { Search, Menu, Settings, TrendingUp, Shield, Sun, Moon, BarChartBig, Upload, LogOut, User, BarChartHorizontal } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useAppContext } from '@/context/AppContext';
 import { useNavigate } from 'react-router-dom';
 
 interface HeaderProps {
@@ -19,6 +20,7 @@ const Header: React.FC<HeaderProps> = ({ setCurrentPage, profilePicture, onImage
   const calcMenuRef = useRef<HTMLDivElement>(null);
   const { signOut } = useAuth();
   const navigate = useNavigate();
+  const { openModal } = useAppContext() as any;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -43,13 +45,17 @@ const Header: React.FC<HeaderProps> = ({ setCurrentPage, profilePicture, onImage
         {/* Left: avatar somente no mobile */}
         <div className="justify-self-start md:hidden">
             <button
-              onClick={() => setCurrentPage('perfil')}
+              onClick={() => openModal('profile')}
               className="relative group"
               aria-label="Perfil"
               title="Perfil"
             >
               <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
-                <User className="text-gray-400" />
+                {profilePicture ? (
+                  <img src={profilePicture} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <User className="text-gray-400" />
+                )}
               </div>
             </button>
         </div>

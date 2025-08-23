@@ -7,14 +7,15 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  zIndexClass?: string;
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer, zIndexClass }) => {
   if (!isOpen) return null;
 
   return (
     <div 
-      className="fixed inset-0 bg-black bg-opacity-60 dark:bg-opacity-70 z-50 flex justify-center items-center" 
+      className={`fixed inset-0 bg-black bg-opacity-60 dark:bg-opacity-70 ${zIndexClass || 'z-50'} flex justify-center items-center`} 
       onClick={onClose}
       aria-modal="true"
       role="dialog"

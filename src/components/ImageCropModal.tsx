@@ -6,9 +6,10 @@ interface ImageCropModalProps {
   imageSrc: string;
   onClose: () => void;
   onSave: (croppedImage: string) => void;
+  onPreview?: (croppedImage: string) => void;
 }
 
-const ImageCropModal: React.FC<ImageCropModalProps> = ({ imageSrc, onClose, onSave }) => {
+const ImageCropModal: React.FC<ImageCropModalProps> = ({ imageSrc, onClose, onSave, onPreview }) => {
   const imgRef = useRef<HTMLImageElement>(null);
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<Crop>();
@@ -64,6 +65,36 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({ imageSrc, onClose, onSa
     }
   };
 
+  const handleComplete = (c: Crop) => {
+    setCompletedCrop(c);
+    if (!onPreview) return;
+    if (!c?.width || !c?.height || !imgRef.current) return;
+    const canvas = document.createElement('canvas');
+    const scaleX = imgRef.current.naturalWidth / imgRef.current.width;
+    const scaleY = imgRef.current.naturalHeight / imgRef.current.height;
+    canvas.width = c.width;
+    canvas.height = c.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const cropX = c.x * scaleX;
+    const cropY = c.y * scaleY;
+    const cropWidth = c.width * scaleX;
+    const cropHeight = c.height * scaleY;
+    ctx.drawImage(
+      imgRef.current,
+      cropX,
+      cropY,
+      cropWidth,
+      cropHeight,
+      0,
+      0,
+      c.width,
+      c.height
+    );
+    const base64Image = canvas.toDataURL('image/jpeg');
+    onPreview(base64Image);
+  };
+
   return (
     <Modal
       isOpen={true}
@@ -80,7 +111,7 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({ imageSrc, onClose, onSa
             <ReactCrop
                 crop={crop}
                 onChange={c => setCrop(c)}
-                onComplete={c => setCompletedCrop(c)}
+                onComplete={handleComplete}
                 aspect={1}
                 circularCrop
             >
