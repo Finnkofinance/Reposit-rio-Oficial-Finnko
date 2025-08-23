@@ -22,19 +22,18 @@ if (!rootElement) {
 
 const root = ReactDOM.createRoot(rootElement);
 root.render(
-  <React.StrictMode>
-    <AuthProvider>
-      <CategoriesProvider>
-        <AccountsProvider>
-          <TransactionsProvider>
-            <CardsProvider>
-              <InvestmentsProvider>
-                <App />
-              </InvestmentsProvider>
-            </CardsProvider>
-          </TransactionsProvider>
-        </AccountsProvider>
-      </CategoriesProvider>
-    </AuthProvider>
-  </React.StrictMode>
+  // Removemos StrictMode para evitar efeitos e chamadas duplicadas no desenvolvimento
+  <AuthProvider>
+    <CategoriesProvider>
+      <AccountsProvider>
+        <TransactionsProvider>
+          <CardsProvider>
+            <InvestmentsProvider>
+              <App />
+            </InvestmentsProvider>
+          </CardsProvider>
+        </TransactionsProvider>
+      </AccountsProvider>
+    </CategoriesProvider>
+  </AuthProvider>
 );

@@ -7,7 +7,7 @@ interface CategoriesContextType {
   categorias: Categoria[];
   addCategoria: (cat: Omit<Categoria, 'id' | 'createdAt' | 'updatedAt' | 'sistema'>) => Promise<Categoria | null>;
   updateCategoria: (cat: Categoria) => Promise<Categoria | null>;
-  deleteCategoria: (id: string) => void;
+  deleteCategoria: (id: string) => Promise<void>;
   validateCategoriaDeletion: (categoryId: string, transacoes: any[], compras: any[]) => boolean;
   bulkReplaceCategories: (categorias: Categoria[]) => void;
 }
@@ -66,7 +66,12 @@ export const CategoriesProvider: React.FC<CategoriesProviderProps> = ({ children
     }
   };
 
-  const deleteCategoria = (id: string) => {
+  const deleteCategoria = async (id: string) => {
+    try {
+      await categoriesService.delete(id);
+    } catch (e) {
+      // Mesmo que falhe remoto, otimizamos UI. Se falhar e for sessão real, o próximo getAll sincroniza.
+    }
     setCategorias(prev => prev.filter(c => c.id !== id));
   };
 

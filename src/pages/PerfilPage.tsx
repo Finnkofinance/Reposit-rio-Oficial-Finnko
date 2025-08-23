@@ -237,10 +237,14 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
   const handleDeleteEditingCategoria = () => {
     if (!editingCategoria) return;
     if (isEditingInUse) return; // segurança extra
-    const ok = window.confirm(`Excluir a categoria "${editingCategoria.nome}"? Esta ação não pode ser desfeita.`);
-    if (!ok) return;
-    deleteCategoria(editingCategoria.id);
-    closeModal();
+    setConfirmation({
+      title: 'Excluir categoria?',
+      message: `Tem certeza que deseja excluir a categoria "${editingCategoria.nome}"? Esta ação é permanente.`,
+      buttons: [
+        { label: 'Cancelar', style: 'secondary', onClick: () => setConfirmation(null) },
+        { label: 'Excluir', style: 'danger', onClick: async () => { try { await deleteCategoria(editingCategoria.id); } finally { setConfirmation(null); closeModal(); } } }
+      ]
+    });
   };
 
   const handleOpenEditModal = (categoria: Categoria) => {
@@ -547,7 +551,17 @@ const PerfilPage: React.FC<PerfilPageProps> = (props) => {
                                 </div>
                                 <div className="hidden md:flex items-center space-x-4">
                                   <button onClick={() => handleOpenEditModal(c)} className="text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400" aria-label={`Editar categoria ${c.nome}`}><Pencil size={18} /></button>
-                                  <button onClick={() => deleteCategoria(c.id)} disabled={isProtected} className={`transition-colors ${isProtected ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed' : 'text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400'}`} aria-label={`Excluir categoria ${c.nome}`}><Trash2 size={18} /></button>
+                                  <button onClick={() => {
+                                    if (isProtected) return;
+                                    setConfirmation({
+                                      title: 'Excluir categoria?',
+                                      message: `Tem certeza que deseja excluir a categoria "${c.nome}"? Esta ação é permanente.`,
+                                      buttons: [
+                                        { label: 'Cancelar', style: 'secondary', onClick: () => setConfirmation(null) },
+                                        { label: 'Excluir', style: 'danger', onClick: async () => { try { await deleteCategoria(c.id); } finally { setConfirmation(null); } } }
+                                      ]
+                                    });
+                                  }} disabled={isProtected} className={`transition-colors ${isProtected ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed' : 'text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400'}`} aria-label={`Excluir categoria ${c.nome}`}><Trash2 size={18} /></button>
                                 </div>
                               </div>
                               {/* Coluna Orçado */}
