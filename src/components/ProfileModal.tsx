@@ -4,6 +4,7 @@ import ImageCropModal from '@/components/ImageCropModal';
 import { profilesService, type Profile, type EmploymentType } from '@/services/profilesService';
 import { supabase } from '@/lib/supabaseClient';
 import { useAppContext } from '@/context/AppContext';
+import { Crown, CheckCircle2, ChevronRight, CalendarDays, User2, Gift, LogOut } from 'lucide-react';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -18,6 +19,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const { showToast, setProfilePicture, setConfirmation } = useAppContext() as any;
+  const [createdAt, setCreatedAt] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState<boolean>(false);
 
   const [form, setForm] = useState<Profile>({
     user_id: '',
@@ -35,6 +38,53 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const handleLockedFieldNotice = (label: string) => {
     try {
       showToast && showToast(`${label} não pode ser alterado por enquanto.`, 'info');
+    } catch {}
+  };
+
+  const openPremiumModal = () => {
+    try {
+      const features: string[] = [
+        'Planos de Futuro para organizar e alcançar suas metas financeiras',
+        'Recomendações de Investimentos alinhadas ao seu perfil e objetivos',
+        'Assessor Pessoal IA disponível 24/7 para dúvidas e orientações',
+        'Integração Bancária Avançada com múltiplos bancos e cartões em tempo real',
+        'Aulas Exclusivas com Bráulio Neves – duas vezes por mês, com insights e estratégias financeiras',
+      ];
+      setConfirmation({
+        title: 'Seja Premium',
+        message: (
+          <div className="space-y-4">
+            <p className="text-gray-100 font-medium">Desbloqueie todo o potencial do Finnko:</p>
+            <ul className="space-y-2.5">
+              {features.map((f, i) => (
+                <li
+                  key={i}
+                  className="flex items-center gap-3 rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2 transition-colors hover:bg-amber-400/10"
+                >
+                  <span className="inline-flex items-center justify-center rounded-full bg-amber-500/10 p-1.5 text-amber-400">
+                    <CheckCircle2 size={18} />
+                  </span>
+                  <span className="text-gray-100 text-[14px] leading-relaxed">{f}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-[11px] text-gray-400">Assinatura simples, cancele quando quiser.</p>
+          </div>
+        ),
+        buttons: [
+          { label: 'Agora não', style: 'secondary', onClick: () => setConfirmation(null) },
+          { 
+            label: 'Quero agora', 
+            style: 'primary', 
+            onClick: () => { 
+              setConfirmation(null);
+              try {
+                window.open('https://finnko.app/premium', '_blank');
+              } catch {}
+            } 
+          },
+        ],
+      });
     } catch {}
   };
 
@@ -76,6 +126,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
           financial_goal: meta.financial_goal ?? base.financial_goal,
           avatar_url: base.avatar_url ?? null,
         } as Profile;
+        setCreatedAt(user?.created_at ?? null);
       } catch {}
       setForm(base);
       setOriginal(base);
@@ -172,13 +223,16 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
         footer={
           <>
             <button onClick={onClose} className="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
-            <button onClick={save} disabled={loading || hasErrors || !isDirty} className={`bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg ${(loading || hasErrors || !isDirty) ? 'opacity-70 cursor-not-allowed' : ''}`}>{loading ? 'Salvando...' : 'Salvar'}</button>
+            {showForm && (
+              <button onClick={save} disabled={loading || hasErrors || !isDirty} className={`bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg ${(loading || hasErrors || !isDirty) ? 'opacity-70 cursor-not-allowed' : ''}`}>{loading ? 'Salvando...' : 'Salvar'}</button>
+            )}
           </>
         }
       >
-        <div className="space-y-5">
-          <div className="flex items-center space-x-4">
-            <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center">
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex flex-col items-center text-center gap-2">
+            <div className="w-20 h-20 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center ring-2 ring-gray-600/40">
               {(avatarPreview || form.avatar_url) ? (
                 <img src={avatarPreview || form.avatar_url || ''} alt="Avatar" className="w-full h-full object-cover" />
               ) : (
@@ -186,60 +240,138 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
               )}
             </div>
             <div className="flex items-center space-x-2">
-              <label className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-white px-3 py-2 rounded-lg cursor-pointer">
+              <label className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-white px-3 py-1.5 rounded-lg cursor-pointer text-sm">
                 <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
                 Mudar foto
               </label>
               {form.avatar_url && (
-                <button onClick={() => setForm(prev => ({ ...prev, avatar_url: null }))} className="text-sm text-red-600 dark:text-red-400 hover:underline">Remover</button>
+                <button onClick={() => setForm(prev => ({ ...prev, avatar_url: null }))} className="text-xs text-red-500 hover:underline">Remover</button>
               )}
+            </div>
+            <div className="mt-1">
+              <div className="text-base font-semibold text-white">{form.full_name || 'Seu nome'}</div>
+              <div className="text-xs text-gray-400">{form.email || '-'}</div>
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome</label>
-            <input value={form.full_name ?? ''} onChange={(e) => setForm(prev => ({ ...prev, full_name: e.target.value }))} onBlur={() => setTouched(t => ({ ...t, full_name: true }))} className="w-full bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-            <input 
-              type="email"
-              value={form.email ?? ''}
-              readOnly
-              onClick={() => handleLockedFieldNotice('Email')}
-              onFocus={(e) => { e.currentTarget.blur(); handleLockedFieldNotice('Email'); }}
-              className={`w-full cursor-not-allowed opacity-80 bg-gray-100 dark:bg-gray-700 border ${touched.email && !isValidEmail(form.email) ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} rounded-lg px-3 py-2 text-gray-900 dark:text-white`} 
-            />
-            {touched.email && !isValidEmail(form.email) && (
-              <p className="mt-1 text-xs text-red-500">Email inválido.</p>
+          {/* Card de status e data de cadastro */}
+          <div className="flex items-center justify-between rounded-xl border border-gray-600/40 bg-gray-800/60 px-4 py-3">
+            <div className="flex items-center gap-2 text-gray-200">
+              <div className="inline-flex items-center justify-center rounded-full bg-amber-500/10 text-amber-300 ring-1 ring-amber-300/40 p-1.5">
+                <Crown size={18} />
+              </div>
+              <div className="text-sm"><span className="text-gray-400">Situação:</span> <span className="font-medium text-gray-100">Free</span></div>
+            </div>
+            {createdAt && (
+              <div className="flex items-center gap-2 text-gray-300 text-sm">
+                <CalendarDays size={16} className="text-gray-400" />
+                <span>Cadastrado em: {new Date(createdAt).toLocaleDateString('pt-BR')}</span>
+              </div>
             )}
-            {/* aviso removido conforme pedido */}
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telefone</label>
-            <input 
-              value={form.phone ?? ''} 
-              readOnly 
-              onClick={() => handleLockedFieldNotice('Telefone')} 
-              onFocus={(e) => { e.currentTarget.blur(); handleLockedFieldNotice('Telefone'); }} 
-              placeholder="+55 11999999999" 
-              className={`w-full cursor-not-allowed opacity-80 bg-gray-100 dark:bg-gray-700 border ${touched.phone && !isValidPhone(form.phone) ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} rounded-lg px-3 py-2 text-gray-900 dark:text-white`} 
-            />
-            {touched.phone && !isValidPhone(form.phone) && (
-              <p className="mt-1 text-xs text-red-500">Telefone inválido. Use formato internacional (ex.: +5511999999999).</p>
-            )}
-            {/* aviso removido conforme pedido */}
+
+          {/* Banner Premium */
+          }
+          <div className="relative overflow-hidden rounded-2xl border border-amber-400/30 bg-gradient-to-br from-zinc-900/60 via-slate-900/60 to-zinc-900/60 p-6 shadow-lg">
+            <div className="pointer-events-none absolute -top-20 -right-24 h-56 w-56 rounded-full bg-amber-400/10 blur-3xl" />
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className="inline-flex items-center justify-center rounded-full bg-amber-500/10 text-amber-300 ring-1 ring-amber-300/40 p-2">
+                <Crown size={24} strokeWidth={1.75} />
+              </div>
+              <p className="text-[15px] leading-relaxed text-gray-100 max-w-xl">
+                Assine o <span className="bg-clip-text text-transparent bg-gradient-to-r from-amber-200 to-yellow-400 font-semibold">Premium</span> e aproveite 100% das funcionalidades do Finnko.
+              </p>
+              <div className="w-full flex justify-center">
+                <button
+                  onClick={openPremiumModal}
+                  className="inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-gray-900 font-semibold px-4 py-2 shadow-[0_8px_30px_rgba(255,199,0,0.25)] ring-1 ring-amber-300/40 hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 active:scale-[0.99] transition"
+                >
+                  Conhecer benefícios
+                  <ChevronRight size={18} className="ml-1.5" />
+                </button>
+              </div>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de emprego</label>
-            <select value={form.employment_type ?? ''} onChange={(e) => setForm(prev => ({ ...prev, employment_type: (e.target.value || null) as EmploymentType | null }))} className="w-full bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500">
-              <option value="">Selecione...</option>
-              {EMPLOYMENT_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-            </select>
+
+          {/* Lista de ações */}
+          <div className="rounded-xl overflow-hidden border border-gray-700/40 divide-y divide-gray-700/40 bg-gray-800/50">
+            <button onClick={() => setShowForm(v => !v)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-800/70 transition">
+              <div className="flex items-center gap-3">
+                <User2 className="text-gray-300" size={18} />
+                <span className="text-gray-100 text-sm">Meu cadastro</span>
+              </div>
+              <ChevronRight size={18} className={`text-gray-400 transition-transform ${showForm ? 'rotate-90' : ''}`} />
+            </button>
+            <button onClick={openPremiumModal} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-800/70 transition">
+              <div className="flex items-center gap-3">
+                <Crown className="text-amber-300" size={18} />
+                <span className="text-gray-100 text-sm">Finnko Premium</span>
+              </div>
+              <ChevronRight size={18} className="text-gray-400" />
+            </button>
+            <button onClick={() => { try { showToast && showToast('Programa de indicações em breve!', 'info'); } catch {} }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-800/70 transition">
+              <div className="flex items-center gap-3">
+                <Gift className="text-gray-300" size={18} />
+                <span className="text-gray-100 text-sm">Convidou, ganhou!</span>
+              </div>
+              <ChevronRight size={18} className="text-gray-400" />
+            </button>
+            <button onClick={async () => { try { await supabase.auth.signOut(); showToast && showToast('Você saiu da conta.', 'info'); } catch {}; onClose(); }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-800/70 transition">
+              <div className="flex items-center gap-3">
+                <LogOut className="text-gray-300" size={18} />
+                <span className="text-gray-100 text-sm">Sair</span>
+              </div>
+              <ChevronRight size={18} className="text-gray-400" />
+            </button>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Objetivo financeiro</label>
-            <input value={form.financial_goal ?? ''} onChange={(e) => setForm(prev => ({ ...prev, financial_goal: e.target.value }))} placeholder="Reserva, viagem, quitar dívidas..." className="w-full bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500" />
+
+          {/* Acordeão: Meu cadastro */}
+          <div className={`overflow-hidden transition-all ${showForm ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+            <div className="mt-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome</label>
+                <input value={form.full_name ?? ''} onChange={(e) => setForm(prev => ({ ...prev, full_name: e.target.value }))} onBlur={() => setTouched(t => ({ ...t, full_name: true }))} className="w-full bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                <input 
+                  type="email"
+                  value={form.email ?? ''}
+                  readOnly
+                  onClick={() => handleLockedFieldNotice('Email')}
+                  onFocus={(e) => { e.currentTarget.blur(); handleLockedFieldNotice('Email'); }}
+                  className={`w-full cursor-not-allowed opacity-80 bg-gray-100 dark:bg-gray-700 border ${touched.email && !isValidEmail(form.email) ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} rounded-lg px-3 py-2 text-gray-900 dark:text-white`} 
+                />
+                {touched.email && !isValidEmail(form.email) && (
+                  <p className="mt-1 text-xs text-red-500">Email inválido.</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telefone</label>
+                <input 
+                  value={form.phone ?? ''} 
+                  readOnly 
+                  onClick={() => handleLockedFieldNotice('Telefone')} 
+                  onFocus={(e) => { e.currentTarget.blur(); handleLockedFieldNotice('Telefone'); }} 
+                  placeholder="+55 11999999999" 
+                  className={`w-full cursor-not-allowed opacity-80 bg-gray-100 dark:bg-gray-700 border ${touched.phone && !isValidPhone(form.phone) ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} rounded-lg px-3 py-2 text-gray-900 dark:text-white`} 
+                />
+                {touched.phone && !isValidPhone(form.phone) && (
+                  <p className="mt-1 text-xs text-red-500">Telefone inválido. Use formato internacional (ex.: +5511999999999).</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de emprego</label>
+                <select value={form.employment_type ?? ''} onChange={(e) => setForm(prev => ({ ...prev, employment_type: (e.target.value || null) as EmploymentType | null }))} className="w-full bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500">
+                  <option value="">Selecione...</option>
+                  {EMPLOYMENT_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Objetivo financeiro</label>
+                <input value={form.financial_goal ?? ''} onChange={(e) => setForm(prev => ({ ...prev, financial_goal: e.target.value }))} placeholder="Reserva, viagem, quitar dívidas..." className="w-full bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+            </div>
           </div>
         </div>
       </Modal>

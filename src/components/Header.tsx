@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Page } from '@/types/types';
-import { Search, Menu, Settings, TrendingUp, Shield, Sun, Moon, BarChartBig, Upload, LogOut, User, BarChartHorizontal } from 'lucide-react';
+import { Search, Menu, Settings, TrendingUp, Shield, Sun, Moon, BarChartBig, Upload, LogOut, User, BarChartHorizontal, Crown, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useAppContext } from '@/context/AppContext';
 import { useNavigate } from 'react-router-dom';
@@ -20,7 +20,7 @@ const Header: React.FC<HeaderProps> = ({ setCurrentPage, profilePicture, onImage
   const calcMenuRef = useRef<HTMLDivElement>(null);
   const { signOut } = useAuth();
   const navigate = useNavigate();
-  const { openModal } = useAppContext() as any;
+  const { openModal, setConfirmation } = useAppContext() as any;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -37,6 +37,42 @@ const Header: React.FC<HeaderProps> = ({ setCurrentPage, profilePicture, onImage
   const toggleTheme = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
     setIsCalcMenuOpen(false); // Close menu on action
+  };
+
+  const openPremiumModal = () => {
+    try {
+      const features: string[] = [
+        'Planos de Futuro para organizar e alcançar suas metas financeiras',
+        'Recomendações de Investimentos alinhadas ao seu perfil e objetivos',
+        'Assessor Pessoal IA disponível 24/7 para dúvidas e orientações',
+        'Integração Bancária Avançada com múltiplos bancos e cartões em tempo real',
+        'Aulas Exclusivas com Bráulio Neves – duas vezes por mês, com insights e estratégias financeiras',
+      ];
+      setIsCalcMenuOpen(false);
+      setConfirmation({
+        title: 'Seja Premium',
+        message: (
+          <div className="space-y-4">
+            <p className="text-gray-100 font-medium">Desbloqueie todo o potencial do Finnko:</p>
+            <ul className="space-y-2.5">
+              {features.map((f, i) => (
+                <li key={i} className="flex items-center gap-3 rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2 transition-colors hover:bg-amber-400/10">
+                  <span className="inline-flex items-center justify-center rounded-full bg-amber-500/10 p-1.5 text-amber-400">
+                    <CheckCircle2 size={18} />
+                  </span>
+                  <span className="text-gray-100 text-[14px] leading-relaxed">{f}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-[11px] text-gray-400">Assinatura simples, cancele quando quiser.</p>
+          </div>
+        ),
+        buttons: [
+          { label: 'Agora não', style: 'secondary', onClick: () => setConfirmation(null) },
+          { label: 'Quero agora', style: 'primary', onClick: () => { setConfirmation(null); try { window.open('https://finnko.app/premium', '_blank'); } catch {} } },
+        ],
+      });
+    } catch {}
   };
 
   return (
@@ -94,6 +130,13 @@ const Header: React.FC<HeaderProps> = ({ setCurrentPage, profilePicture, onImage
                                 {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
                                 <span>{theme === 'dark' ? 'Mudar para Tema Claro' : 'Mudar para Tema Escuro'}</span>
                             </button>
+                            <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                            {/* Finnko Premium */}
+                            <button onClick={openPremiumModal} className="flex items-center space-x-3 w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white">
+                                <Crown size={16} className="text-amber-300" />
+                                <span>Finnko Premium</span>
+                            </button>
+                            
                             <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
                             <h4 className="px-3 pt-2 pb-1 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                                 Ajustes
