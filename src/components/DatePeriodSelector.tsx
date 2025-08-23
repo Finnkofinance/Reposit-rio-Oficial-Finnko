@@ -33,7 +33,7 @@ const DatePeriodSelector: React.FC<DatePeriodSelectorProps> = ({ title, selected
     };
 
     return (
-        <div className="flex flex-col items-center space-y-2 mb-6">
+        <div className="flex flex-col items-center text-center space-y-2 mb-6">
             {title && <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{title}</h2>}
             {/* Year Selector */}
             <div className="flex items-center space-x-4 text-base font-medium text-gray-500 dark:text-gray-400">
