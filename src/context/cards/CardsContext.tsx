@@ -38,16 +38,10 @@ export const CardsProvider: React.FC<CardsProviderProps> = ({ children }) => {
     (async () => {
       const loadedCartoes = await cardsService.getAll();
       setCartoes(Array.isArray(loadedCartoes) ? loadedCartoes : []);
-      try {
-        const comprasItem = window.localStorage.getItem('compras');
-        setCompras(comprasItem ? JSON.parse(comprasItem) : []);
-        const parcelasItem = window.localStorage.getItem('parcelas');
-        setParcelas(parcelasItem ? JSON.parse(parcelasItem) : []);
-      } catch (error) {
-        console.error('Error loading compras/parcelas:', error);
-        setCompras([]);
-        setParcelas([]);
-      }
+      // Compras e parcelas: busca do serviço (usa Supabase se logado)
+      const { compras: loadedCompras, parcelas: loadedParcelas } = await cardsService.getPurchases();
+      setCompras(Array.isArray(loadedCompras) ? loadedCompras : []);
+      setParcelas(Array.isArray(loadedParcelas) ? loadedParcelas : []);
       setInitialLoaded(true);
     })();
   }, [loading, user?.id]);
@@ -93,21 +87,44 @@ export const CardsProvider: React.FC<CardsProviderProps> = ({ children }) => {
     setCartoes(prev => prev.filter(c => c.id !== id));
     setCompras(prev => prev.filter(c => c.cartao_id !== id));
     setParcelas(prev => prev.filter(p => !comprasToDelete.has(p.compra_id)));
+    // Esforço melhorado: também remove do Supabase se logado
+    (async () => {
+      try { await cardsService.deleteOne(id); } catch {}
+    })();
   };
 
   const addCompraCartao = (compraData: Omit<CompraCartao, 'id' | 'createdAt' | 'updatedAt' | 'parcelas_total'> & { parcelas: number }): boolean => {
     const cartao = cartoes.find(c => c.id === compraData.cartao_id);
     if (!cartao) return false;
 
-    if (compraData.recorrencia) {
-      const { compras: newCompras, parcelas: newParcelas } = cardsService.createRecurringPurchase(compraData, cartao);
-      setCompras(prev => [...prev, ...newCompras]);
-      setParcelas(prev => [...prev, ...newParcelas]);
-    } else {
-      const { compra: newCompra, parcelas: newParcelas } = cardsService.createPurchase(compraData, cartao);
-      setCompras(prev => [...prev, newCompra]);
-      setParcelas(prev => [...prev, ...newParcelas]);
-    }
+    (async () => {
+      try {
+        // Se logado, persiste; senão, apenas local
+        if (user) {
+          if (compraData.recorrencia) {
+            const { compras: newCompras, parcelas: newParcelas } = await cardsService.createRecurringPurchasePersist(compraData, cartao);
+            setCompras(prev => [...prev, ...newCompras]);
+            setParcelas(prev => [...prev, ...newParcelas]);
+          } else {
+            const { compra: newCompra, parcelas: newParcelas } = await cardsService.createPurchasePersist(compraData, cartao);
+            setCompras(prev => [...prev, newCompra]);
+            setParcelas(prev => [...prev, ...newParcelas]);
+          }
+        } else {
+          if (compraData.recorrencia) {
+            const { compras: newCompras, parcelas: newParcelas } = cardsService.createRecurringPurchase(compraData, cartao);
+            setCompras(prev => [...prev, ...newCompras]);
+            setParcelas(prev => [...prev, ...newParcelas]);
+          } else {
+            const { compra: newCompra, parcelas: newParcelas } = cardsService.createPurchase(compraData, cartao);
+            setCompras(prev => [...prev, newCompra]);
+            setParcelas(prev => [...prev, ...newParcelas]);
+          }
+        }
+      } catch (e) {
+        console.error('Erro ao criar compra:', e);
+      }
+    })();
     return true;
   };
 
@@ -125,17 +142,32 @@ export const CardsProvider: React.FC<CardsProviderProps> = ({ children }) => {
     const cartao = cartoes.find(c => c.id === compra.cartao_id);
     if (!cartao) return false;
 
-    const { updatedCompra, newParcelas } = cardsService.updatePurchase(compra, cartao, parcelas);
-    const parcelasToKeep = parcelas.filter(p => p.compra_id !== compra.id);
-    
-    setCompras(prev => prev.map(c => c.id === compra.id ? updatedCompra : c));
-    setParcelas([...parcelasToKeep, ...newParcelas]);
+    (async () => {
+      try {
+        if (user) {
+          const { updatedCompra, newParcelas } = await cardsService.updatePurchasePersist(compra, cartao);
+          const parcelasToKeep = parcelas.filter(p => p.compra_id !== compra.id);
+          setCompras(prev => prev.map(c => c.id === compra.id ? updatedCompra : c));
+          setParcelas([...parcelasToKeep, ...newParcelas]);
+        } else {
+          const { updatedCompra, newParcelas } = cardsService.updatePurchase(compra, cartao, parcelas);
+          const parcelasToKeep = parcelas.filter(p => p.compra_id !== compra.id);
+          setCompras(prev => prev.map(c => c.id === compra.id ? updatedCompra : c));
+          setParcelas([...parcelasToKeep, ...newParcelas]);
+        }
+      } catch (e) {
+        console.error('Erro ao atualizar compra:', e);
+      }
+    })();
     return true;
   };
 
   const deleteCompraCartao = (id: string) => {
     setCompras(prev => prev.filter(c => c.id !== id));
     setParcelas(prev => prev.filter(p => p.compra_id !== id));
+    (async () => {
+      try { await cardsService.deletePurchase(id); } catch {}
+    })();
   };
 
   const bulkReplaceCompras = (newCompras: CompraCartao[]) => {
