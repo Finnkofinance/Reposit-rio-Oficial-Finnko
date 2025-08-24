@@ -75,19 +75,23 @@ export const TransactionsProvider: React.FC<TransactionsProviderProps> = ({ chil
   const deleteTransacao = (id: string) => {
     setTransacoes(prev => {
       const tx = prev.find(t => t.id === id);
-      let idsToDelete = new Set([id]);
+      let idsToDelete = new Set<string>([id]);
       if (tx?.transferencia_par_id) idsToDelete.add(tx.transferencia_par_id);
+      // Fire-and-forget persist deletion in Supabase when logado
+      transactionsService.removeByIds(Array.from(idsToDelete)).catch(() => {});
       return prev.filter(t => !idsToDelete.has(t.id));
     });
   };
 
   const deleteTransacoes = (ids: string[]) => {
     setTransacoes(prev => {
-      let idsToDelete = new Set(ids);
+      let idsToDelete = new Set<string>(ids);
       ids.forEach(id => {
         const tx = prev.find(t => t.id === id);
         if(tx?.transferencia_par_id) idsToDelete.add(tx.transferencia_par_id);
       });
+      // Persist in Supabase
+      transactionsService.removeByIds(Array.from(idsToDelete)).catch(() => {});
       return prev.filter(t => !idsToDelete.has(t.id));
     });
   };

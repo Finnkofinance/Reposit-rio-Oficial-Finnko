@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Plus, Pencil, Trash2, ArrowRightLeft } from 'lucide-react';
+import { Plus, Pencil, Trash2, ArrowRightLeft, EllipsisVertical, ChevronDown } from 'lucide-react';
 
 import Modal from '@/components/Modal';
 import CurrencyInput from '@/components/CurrencyInput';
@@ -64,6 +64,12 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
   
   const [editingConta, setEditingConta] = useState<ContaBancaria | null>(null);
   const [isSaldoInicialEditBlocked, setSaldoInicialEditBlocked] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [swipedItemId, setSwipedItemId] = useState<string | null>(null);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const historyHeaderRef = React.useRef<HTMLHeadingElement | null>(null);
+  const toggleBtnRef = React.useRef<HTMLButtonElement | null>(null);
   // recursos de edição em massa removidos
 
   // Form states
@@ -143,6 +149,7 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
     valor?: number;
     tipo: 'conta_criada' | 'transferencia' | 'entrada' | 'saida';
     contaCor?: string;
+    txId?: string;
   };
 
   const bankHistory = useMemo<BankHistoryItem[]>(() => {
@@ -168,6 +175,7 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
         subtitulo: `Saldo inicial ${formatCurrency(t.valor)}`,
         tipo: 'conta_criada',
         contaCor: conta?.cor,
+        txId: t.id,
       });
     });
 
@@ -188,6 +196,7 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
             valor: t.valor,
             tipo: 'transferencia',
             contaCor: contaMap.get(t.conta_id)?.cor,
+            txId: t.id,
           });
         }
       });
@@ -204,6 +213,7 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
           valor: t.valor,
           tipo: 'entrada',
           contaCor: conta?.cor,
+          txId: t.id,
         });
       });
 
@@ -219,12 +229,30 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
           valor: t.valor,
           tipo: 'saida',
           contaCor: conta?.cor,
+          txId: t.id,
         });
       });
 
     // Ordenar por data desc
     return items.sort((a, b) => b.data.localeCompare(a.data));
   }, [transacoes, contas, selectedView, selectedMonth]);
+
+  const sortedHistory = bankHistory; // já vem ordenado desc pelo useMemo
+  const visibleHistory = isExpanded ? sortedHistory : sortedHistory.slice(0, 6);
+  const canToggleHistory = sortedHistory.length > 6;
+
+  const handleToggleHistory = () => {
+    if (isExpanded) {
+      setIsExpanded(false);
+      // garantir foco e rolagem ao cabeçalho
+      setTimeout(() => {
+        toggleBtnRef.current?.focus();
+        historyHeaderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 0);
+    } else {
+      setIsExpanded(true);
+    }
+  };
 
   const transacoesFiltradas = useMemo(() => {
     const [year, month] = selectedMonth.split('-').map(Number);
@@ -351,7 +379,7 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
         return (
             <div key={t.id} className={`relative border-t border-gray-200 dark:border-gray-700`}>
                 <div className="absolute left-0 top-0 h-full w-1.5 rounded-r-sm" style={{ backgroundColor: conta?.cor || 'transparent' }}></div>
-                <div className="p-4 pl-6">
+                <div className="p-4 pl-6" onClick={() => handleEditClick(t)}>
                     <div className="flex justify-between items-start">
                         <div className="flex-1">
                             <div className="flex items-center space-x-2">
@@ -365,7 +393,8 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
                             <div className="text-xs text-gray-400 dark:text-gray-500">{formatDate(t.data)}</div>
                         </div>
                     </div>
-                    <div className="flex justify-end items-center mt-2 space-x-3 text-gray-500 dark:text-gray-400">
+                    <div className="flex justify-end items-center mt-2 space-x-3 text-gray-500 dark:text-gray-400" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => handleEditClick(t)} className="hover:text-blue-500 dark:hover:text-blue-400"><Pencil size={16}/></button>
                         <button onClick={() => deleteTransacao(t.id)} className="hover:text-red-500 dark:hover:text-red-400"><Trash2 size={16}/></button>
                     </div>
                 </div>
@@ -380,6 +409,7 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
             <td className="p-3 flex items-center space-x-2 text-gray-700 dark:text-gray-300">{categoria && getCategoryIcon(categoria.tipo)}<span>{categoria?.nome || 'N/A'}</span></td>
             <td className={`p-3 text-right font-semibold ${valorColor}`}>{formatCurrency(t.valor)}</td>
             <td className="p-3 text-center flex justify-center space-x-3">
+                <button onClick={() => handleEditClick(t)} className="text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"><Pencil size={16}/></button>
                 <button onClick={() => deleteTransacao(t.id)} className="text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400"><Trash2 size={16}/></button>
             </td>
         </tr>
@@ -456,7 +486,7 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
                             </div>
                             <div className="flex space-x-1 flex-shrink-0 pl-2 text-gray-800 dark:text-white">
                                 <button onClick={(e) => { e.stopPropagation(); openModal('editar-conta', { conta: c }); }} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"><Pencil size={18} /></button>
-                                <button onClick={(e) => { e.stopPropagation(); deleteConta(c.id); }} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"><Trash2 size={18} /></button>
+                                <button onClick={(e) => { e.stopPropagation(); deleteConta(c.id); }} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600" title="Excluir Conta"><Trash2 size={18} /></button>
                             </div>
                         </div>
                       )
@@ -468,44 +498,145 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
               />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 my-6">
-            <KPICard label="Saldo Consolidado" value={kpisData.saldoConsolidadoTotal} icon="bank" projectedValue={kpisData.saldoContaSelecionada} projectedLabel={kpisData.saldoContaSelecionada !== undefined ? contas.find(c => c.id === selectedView)?.nome : undefined} />
-            <KPICard label="Entradas no Mês" value={kpisData.entradasMes} icon="up" />
-            <KPICard label="Saídas no Mês" value={kpisData.saidasMes} icon="down" />
-            <KPICard label="Investimentos no Mês" value={kpisData.investimentosMes} icon="invest" />
+          <div className="grid grid-cols-12 gap-x-2 gap-y-3 mt-3 mb-4 sm:gap-x-3 sm:gap-y-3 sm:mb-6 lg:gap-4 lg:grid-cols-12">
+            <div className="col-span-6 lg:col-span-3">
+              <KPICard label="Saldo Consolidado" value={kpisData.saldoConsolidadoTotal} icon="bank" projectedValue={kpisData.saldoContaSelecionada} projectedLabel={kpisData.saldoContaSelecionada !== undefined ? contas.find(c => c.id === selectedView)?.nome : undefined} />
+            </div>
+            <div className="col-span-6 lg:col-span-3">
+              <KPICard label="Entradas no Mês" value={kpisData.entradasMes} icon="up" />
+            </div>
+            <div className="col-span-6 lg:col-span-3">
+              <KPICard label="Saídas no Mês" value={kpisData.saidasMes} icon="down" />
+            </div>
+            <div className="col-span-6 lg:col-span-3">
+              <KPICard label="Investimentos no Mês" value={kpisData.investimentosMes} icon="invest" />
+            </div>
           </div>
 
           <div className="flex-1 bg-white dark:bg-gray-800 rounded-lg p-4 flex flex-col shadow-sm dark:shadow-none border dark:border-transparent min-h-[70vh] md:min-h-0">
             <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 gap-3">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Histórico de Operações {selectedView !== 'all' ? `(${contas.find(c => c.id === selectedView)?.nome || ''})` : '(Todas)'}
-              </h3>
+              <div className="flex-1">
+                <h3 ref={historyHeaderRef} className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Histórico de Operações {selectedView !== 'all' ? `(${contas.find(c => c.id === selectedView)?.nome || ''})` : '(Todas)'}
+                </h3>
+              </div>
               <div className="flex space-x-2 w-full md:w-auto">
                 <button onClick={() => openModal('nova-transacao')} className="w-full md:w-auto bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-3 rounded-lg flex items-center justify-center space-x-2 text-sm">
                   <Plus size={16}/><span>Nova Transação</span>
                 </button>
               </div>
             </div>
-            <div className="overflow-y-auto flex-1 divide-y divide-gray-200 dark:divide-gray-700">
+            <div className="overflow-y-auto flex-1 transition-all duration-200 ease-out">
               {bankHistory.length === 0 && (
                 <div className="text-center text-gray-500 dark:text-gray-400 py-8">Nenhum evento neste período.</div>
               )}
-              {bankHistory.map(item => (
-                <div key={item.id} className="flex items-center justify-between py-3">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-1.5 h-8 rounded-full" style={{ backgroundColor: item.contaCor || '#6b7280' }} />
-                    <div>
-                      <div className="font-semibold text-gray-900 dark:text-white">{item.titulo}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">{new Date(item.data).toLocaleDateString('pt-BR')}{item.subtitulo ? ` • ${item.subtitulo}` : ''}</div>
+              {visibleHistory.map((item, idx) => {
+                const tx = transacoes.find(t => t.id === item.txId);
+                const categoria = categorias.find(c => c.id === (tx?.categoria_id || ''));
+                const realizado = tx?.realizado ?? true;
+                const markerStyle = { backgroundColor: item.contaCor || '#6b7280' } as React.CSSProperties;
+                const valorClass = item.tipo === 'entrada' ? 'text-green-500' : item.tipo === 'saida' ? 'text-red-500' : 'text-gray-400';
+                const valorBg = item.tipo === 'entrada' ? 'bg-emerald-500/10' : item.tipo === 'saida' ? 'bg-rose-500/10' : 'bg-slate-500/10';
+                const showDateHeader = idx === 0 || item.data !== visibleHistory[idx - 1].data;
+                const addTopBorder = !(idx === 0 || showDateHeader);
+
+                return (
+                  <>
+                    {showDateHeader && (
+                      <div key={`date-${item.id}`} className={`${idx !== 0 ? 'mt-4' : ''} mb-2 text-[12px] sm:text-[13px] text-slate-400`}>
+                        {new Date(item.data).toLocaleDateString('pt-BR')}
+                      </div>
+                    )}
+                    <div
+                    key={item.id}
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === '.') setOpenMenuId(prev => prev === item.id ? null : item.id); if (e.key === 'Escape') setOpenMenuId(null); }}
+                    onClick={() => { if (tx) handleEditClick(tx); }}
+                    className={`relative min-h-[72px] pl-4 sm:pl-5 pr-4 py-3 bg-transparent group overflow-visible ${addTopBorder ? 'border-t border-slate-700/60' : ''} ${swipedItemId === item.id ? 'sm:translate-x-0' : ''}`}
+                    onTouchStart={(e) => { setTouchStartX(e.changedTouches[0].clientX); }}
+                    onTouchEnd={(e) => {
+                      if (touchStartX === null) return;
+                      const dx = e.changedTouches[0].clientX - touchStartX;
+                      if (dx < -40) setSwipedItemId(item.id); // revelar
+                      if (dx > 40 && swipedItemId === item.id) setSwipedItemId(null); // esconder
+                      setTouchStartX(null);
+                    }}
+                  >
+                    {/* Ações swipe (mobile) */}
+                    {tx && (
+                      <div className={`absolute inset-y-0 right-0 flex items-center space-x-2 pr-4 sm:hidden transition-transform ${swipedItemId === item.id ? 'translate-x-0' : 'translate-x-full'}`}>
+                        <button onClick={() => handleEditClick(tx)} className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-md">Editar</button>
+                        <button onClick={() => deleteTransacao(tx.id)} className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-3 py-1.5 rounded-md">Excluir</button>
+                      </div>
+                    )}
+
+                    {/* Barra colorida absoluta */}
+                    <span className="absolute left-0 top-1.5 h-[calc(100%-12px)] w-1 rounded-full" style={markerStyle} />
+
+                    <div className="grid grid-cols-12 gap-3 items-start">
+                      {/* Col-2–9 informações */}
+                      <div className="col-span-8 sm:col-span-8">
+                        {/* Linha 1: título */}
+                        <div className="flex items-start justify-between">
+                          <div className="font-semibold text-[15px] leading-5 text-gray-900 dark:text-white mr-3">{item.titulo}</div>
+                          {/* Em mobile, valor será exibido na coluna da direita para alinhamento perfeito */}
+                        </div>
+                        {/* Linha 2: data • descrição */}
+                        <div className="text-[13px] text-gray-500 dark:text-gray-400 mt-1">{new Date(item.data).toLocaleDateString('pt-BR')}{item.subtitulo ? ` • ${item.subtitulo}` : ''}</div>
+                        {/* Linha 3: badges */}
+                        <div className="flex items-center flex-wrap gap-2 mt-1.5">
+                          {categoria && (
+                            <span className="inline-flex items-center h-6 px-2 rounded-md text-xs font-medium bg-gray-700 text-gray-200">{categoria.nome}</span>
+                          )}
+                          <span className={`inline-flex items-center h-6 px-2 rounded-md text-xs font-semibold ${realizado ? 'bg-emerald-900 text-emerald-400' : 'bg-amber-900 text-amber-400'}`}>{realizado ? 'Realizado' : 'Previsto'}</span>
+                        </div>
+                      </div>
+                      {/* Col-10–12 valor + menu */}
+                      <div className="col-span-4 flex items-start justify-end space-x-2">
+                        {typeof item.valor === 'number' && (
+                          <div className={`text-right font-semibold text-[16px] ${valorClass} ${valorBg} px-2 py-0.5 rounded-md`}>{formatCurrency(item.valor)}</div>
+                        )}
+                        {tx && (
+                          <div className="relative">
+                            <button
+                              className="hidden sm:grid h-8 w-8 place-items-center rounded-md hover:bg-slate-700/50 focus:bg-slate-700/50 focus:outline-none"
+                              onClick={(e) => { e.stopPropagation(); setOpenMenuId(prev => prev === item.id ? null : item.id); }}
+                              aria-haspopup="menu"
+                              aria-expanded={openMenuId === item.id}
+                            >
+                              <EllipsisVertical className="size-5 opacity-70" />
+                            </button>
+                            {openMenuId === item.id && (
+                              <div className="absolute right-0 z-50 -translate-y-1 mt-2 w-40 rounded-md border border-slate-700/60 bg-slate-800 p-1 shadow-lg">
+                                <button className="flex w-full items-center gap-2 rounded px-2 py-1.5 hover:bg-slate-700/60" onClick={() => { handleEditClick(tx); setOpenMenuId(null); }}>
+                                  <Pencil className="size-4" /> Editar
+                                </button>
+                                <div className="my-1 h-px bg-slate-700/60" />
+                                <button className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-rose-400 hover:bg-rose-500/10" onClick={() => { deleteTransacao(tx.id); setOpenMenuId(null); }}>
+                                  <Trash2 className="size-4" /> Excluir
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  {typeof item.valor === 'number' && (
-                    <div className={`font-semibold ${item.tipo === 'entrada' ? 'text-green-500' : item.tipo === 'saida' ? 'text-red-500' : 'text-gray-400'}`}>
-                      {formatCurrency(item.valor)}
-                    </div>
-                  )}
+                  </>
+                );
+              })}
+              {canToggleHistory && bankHistory.length > 0 && (
+                <div className="flex justify-center md:justify-end pt-3">
+                  <button
+                    onClick={handleToggleHistory}
+                    aria-expanded={isExpanded}
+                    className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm bg-slate-700/60 hover:bg-slate-700 text-slate-100"
+                  >
+                    <ChevronDown className={`size-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                    {isExpanded ? 'Ver menos' : 'Ver mais'}
+                  </button>
                 </div>
-              ))}
+              )}
             </div>
           </div>
       </div>

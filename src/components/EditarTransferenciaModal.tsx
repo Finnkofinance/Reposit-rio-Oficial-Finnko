@@ -7,11 +7,12 @@ interface EditarTransferenciaModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: { originalTxId: string; valor: number; data: string; descricao: string; }) => void;
+  onDelete?: (id: string) => void;
   transferenciaToEdit: TransacaoBanco;
 }
 
 const EditarTransferenciaModal: React.FC<EditarTransferenciaModalProps> = ({
-  isOpen, onClose, onSave, transferenciaToEdit
+  isOpen, onClose, onSave, onDelete, transferenciaToEdit
 }) => {
   const [data, setData] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -50,10 +51,17 @@ const EditarTransferenciaModal: React.FC<EditarTransferenciaModalProps> = ({
       onClose={onClose}
       title="Editar Transferência"
       footer={
-        <>
-          <button onClick={onClose} className="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
-          <button type="submit" form="editar-transferencia-form" className="bg-gradient-to-r from-[#19CF67] to-[#00DE5F] hover:from-[#16B359] hover:to-[#00C454] text-white font-bold py-2 px-4 rounded-lg">Salvar Alterações</button>
-        </>
+        <div className="flex justify-between w-full">
+          <div>
+            {onDelete && (
+              <button type="button" onClick={() => onDelete(transferenciaToEdit.id)} className="sm:hidden bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg">Excluir</button>
+            )}
+          </div>
+          <div className="space-x-2">
+            <button onClick={onClose} className="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
+            <button type="submit" form="editar-transferencia-form" className="bg-gradient-to-r from-[#19CF67] to-[#00DE5F] hover:from-[#16B359] hover:to-[#00C454] text-white font-bold py-2 px-4 rounded-lg">Salvar Alterações</button>
+          </div>
+        </div>
       }
     >
       <form id="editar-transferencia-form" onSubmit={handleSubmit} className="space-y-4">
