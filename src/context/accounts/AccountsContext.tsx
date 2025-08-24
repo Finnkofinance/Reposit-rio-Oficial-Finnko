@@ -6,7 +6,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 interface AccountsContextType {
   contas: ContaBancaria[];
   addConta: (contaData: { nome: string; saldo_inicial: number; ativo: boolean; data_inicial: string; cor: string; }) => ContaBancaria | null;
-  updateConta: (conta: Omit<ContaBancaria, 'saldo_inicial'>) => void;
+  updateConta: (conta: Omit<ContaBancaria, 'saldo_inicial'>, novoSaldoInicial?: number, novaDataInicial?: string) => void;
   deleteConta: (id: string) => void;
   validateContaDeletion: (id: string, cartoes: any[]) => string | null;
 }
@@ -51,13 +51,24 @@ export const AccountsProvider: React.FC<AccountsProviderProps> = ({ children }) 
     }
   };
 
-  const updateConta = (conta: Omit<ContaBancaria, 'saldo_inicial'>) => {
+  const updateConta = (conta: Omit<ContaBancaria, 'saldo_inicial'>, novoSaldoInicial?: number, novaDataInicial?: string) => {
     const updatedConta = accountsService.update(conta);
-    setContas(prev => prev.map(c => c.id === conta.id ? updatedConta : c));
+    setContas(prev => prev.map(c => {
+      if (c.id !== conta.id) return c;
+      const saldo = typeof novoSaldoInicial === 'number' ? novoSaldoInicial : c.saldo_inicial;
+      const dataInicial = typeof novaDataInicial === 'string' && novaDataInicial ? novaDataInicial : c.data_inicial;
+      return { ...(updatedConta as ContaBancaria), saldo_inicial: saldo, data_inicial: dataInicial } as ContaBancaria;
+    }));
+    // Persistir saldo inicial/data no Supabase quando fornecidos
+    if (typeof novoSaldoInicial === 'number' || (typeof novaDataInicial === 'string' && !!novaDataInicial)) {
+      accountsService.updateSaldoInicial(conta.id, novoSaldoInicial ?? NaN, novaDataInicial).catch(() => {});
+    }
   };
 
   const deleteConta = (id: string) => {
     setContas(prev => prev.filter(c => c.id !== id));
+    // Persist deleção no Supabase (fire-and-forget)
+    accountsService.removeById(id).catch(() => {});
   };
 
   const validateContaDeletion = (id: string, cartoes: any[]): string | null => {

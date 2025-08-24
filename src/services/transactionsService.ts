@@ -217,5 +217,32 @@ export const transactionsService = {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+  },
+
+  // Deleção: por IDs (logado → Supabase; local → context cuida)
+  removeByIds: async (ids: string[]): Promise<void> => {
+    try {
+      const { data: auth } = await supabase.auth.getSession();
+      if (auth.session?.user) {
+        if (!ids || ids.length === 0) return;
+        const { error } = await supabase.from('transacoes_banco').delete().in('id', ids);
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.error('Error deleting transactions:', error);
+    }
+  },
+
+  // Deleção: por conta (para cascade manual)
+  removeByAccount: async (contaId: string): Promise<void> => {
+    try {
+      const { data: auth } = await supabase.auth.getSession();
+      if (auth.session?.user) {
+        const { error } = await supabase.from('transacoes_banco').delete().eq('conta_id', contaId);
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.error('Error deleting transactions by account:', error);
+    }
   }
 };

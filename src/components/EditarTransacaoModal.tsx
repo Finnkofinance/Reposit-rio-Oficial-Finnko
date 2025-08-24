@@ -8,13 +8,14 @@ interface EditarTransacaoModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (transacao: TransacaoBanco) => void;
+  onDelete?: (id: string) => void;
   transacaoToEdit: TransacaoBanco;
   contas: ContaBancaria[];
   categorias: Categoria[];
 }
 
 const EditarTransacaoModal: React.FC<EditarTransacaoModalProps> = ({
-  isOpen, onClose, onSave, transacaoToEdit, contas, categorias
+  isOpen, onClose, onSave, onDelete, transacaoToEdit, contas, categorias
 }) => {
   const [tipo, setTipo] = useState<TipoCategoria.Saida | TipoCategoria.Entrada>(TipoCategoria.Saida);
   const [contaId, setContaId] = useState('');
@@ -67,10 +68,17 @@ const EditarTransacaoModal: React.FC<EditarTransacaoModalProps> = ({
       onClose={onClose}
       title="Editar Transação"
       footer={
-        <>
-          <button onClick={onClose} className="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
-          <button type="submit" form="editar-transacao-form" className="bg-gradient-to-r from-[#19CF67] to-[#00DE5F] hover:from-[#16B359] hover:to-[#00C454] text-white font-bold py-2 px-4 rounded-lg">Salvar Alterações</button>
-        </>
+        <div className="flex justify-between w-full">
+          <div>
+            {onDelete && (
+              <button type="button" onClick={() => onDelete(transacaoToEdit.id)} className="sm:hidden bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg">Excluir</button>
+            )}
+          </div>
+          <div className="space-x-2">
+            <button onClick={onClose} className="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
+            <button type="submit" form="editar-transacao-form" className="bg-gradient-to-r from-[#19CF67] to-[#00DE5F] hover:from-[#16B359] hover:to-[#00C454] text-white font-bold py-2 px-4 rounded-lg">Salvar Alterações</button>
+          </div>
+        </div>
       }
     >
       <form id="editar-transacao-form" onSubmit={handleSubmit} className="space-y-4">

@@ -33,19 +33,22 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ data, onClose }) 
             isOpen={true} 
             onClose={onClose} 
             title={data.title}
-            zIndexClass="z-[100]"
+            zIndexClass="z-[999]"
             footer={
-                <>
+                <div onClick={(e) => e.stopPropagation()}>
                     {data.buttons.map((btn, index) => (
                         <button
                             key={index}
-                            onClick={btn.onClick}
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); btn.onClick(); }}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onTouchEnd={(e) => e.stopPropagation()}
                             className={`text-white font-bold py-2 px-4 rounded-lg transition-colors ${getButtonClass(btn.style)}`}
                         >
                             {btn.label}
                         </button>
                     ))}
-                </>
+                </div>
             }
         >
             <p className="text-gray-300">{data.message}</p>

@@ -95,7 +95,7 @@ const Layout = () => {
 
     // Context hooks
     const { contas, addConta } = useAccounts();
-    const { transacoes, addTransacao, addRecurringTransacao, addTransferencia, updateTransacao, updateTransferencia, addPayment } = useTransactions();
+    const { transacoes, addTransacao, addRecurringTransacao, addTransferencia, updateTransacao, updateTransferencia, addPayment, deleteTransacao } = useTransactions();
     const { cartoes, compras, addCompraCartao, updateCompraCartao } = useCards();
     const { categorias } = useCategories();
 
@@ -352,6 +352,14 @@ const Layout = () => {
                         isOpen={true}
                         onClose={closeModal}
                         onSave={handleUpdateTransacao}
+                        onDelete={(id) => setConfirmation({
+                            title: 'Excluir transação?',
+                            message: 'Esta ação não pode ser desfeita.',
+                            buttons: [
+                                { label: 'Cancelar', style: 'secondary', onClick: () => setConfirmation(null) },
+                                { label: 'Excluir', style: 'danger', onClick: () => { deleteTransacao(id); setConfirmation(null); closeModal(); } }
+                            ]
+                        })}
                         transacaoToEdit={modalState.data?.transacao}
                         contas={contas}
                         categorias={categorias}
@@ -363,6 +371,14 @@ const Layout = () => {
                         isOpen={true}
                         onClose={closeModal}
                         onSave={handleUpdateTransferencia}
+                        onDelete={(id) => setConfirmation({
+                            title: 'Excluir transferência?',
+                            message: 'As duas pernas serão removidas. Esta ação não pode ser desfeita.',
+                            buttons: [
+                                { label: 'Cancelar', style: 'secondary', onClick: () => setConfirmation(null) },
+                                { label: 'Excluir', style: 'danger', onClick: () => { deleteTransacao(id); setConfirmation(null); closeModal(); } }
+                            ]
+                        })}
                         transferenciaToEdit={modalState.data?.transferencia}
                     />
                 )}

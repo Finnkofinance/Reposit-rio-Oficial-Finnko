@@ -22,6 +22,19 @@ export const accountsService = {
     }
   },
 
+  // Deleta conta no Supabase quando logado
+  removeById: async (id: string): Promise<void> => {
+    try {
+      const { data: auth } = await supabase.auth.getSession();
+      if (auth.session?.user) {
+        const { error } = await supabase.from('contas_bancarias').delete().eq('id', id);
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.error('Error deleting account:', error);
+    }
+  },
+
   save: async (contas: ContaBancaria[]): Promise<void> => {
     try {
       const { data: auth } = await supabase.auth.getSession();
@@ -72,8 +85,42 @@ export const accountsService = {
   },
 
   update: (conta: Omit<ContaBancaria, 'saldo_inicial'>): ContaBancaria => {
-    // Mantém API síncrona; persistência ocorrerá via save() do contexto
+    // Mantém API síncrona e tenta persistir imediatamente quando logado
+    (async () => {
+      try {
+        const { data: auth } = await supabase.auth.getSession();
+        if (auth.session?.user) {
+          const payload = {
+            id: conta.id,
+            nome: conta.nome,
+            data_inicial: conta.data_inicial,
+            ativo: conta.ativo,
+            cor: conta.cor ?? null,
+            updated_at: new Date().toISOString()
+          } as any;
+          const { error } = await supabase.from('contas_bancarias').update(payload).eq('id', conta.id);
+          if (error) throw error;
+        }
+      } catch (error) {
+        console.error('Error updating account:', error);
+      }
+    })();
     return { ...conta, updatedAt: new Date().toISOString() } as unknown as ContaBancaria;
+  },
+
+  // Atualiza explicitamente saldo_inicial e data_inicial
+  updateSaldoInicial: async (contaId: string, saldoInicial: number, dataInicial?: string) => {
+    try {
+      const { data: auth } = await supabase.auth.getSession();
+      if (auth.session?.user) {
+        const update: any = { saldo_inicial: saldoInicial };
+        if (dataInicial) update.data_inicial = dataInicial;
+        const { error } = await supabase.from('contas_bancarias').update(update).eq('id', contaId);
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.error('Error updating initial balance:', error);
+    }
   },
 
   validateDeletion: (conta: ContaBancaria, cartoes: any[]): string | null => {
