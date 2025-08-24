@@ -3,19 +3,22 @@ import React, { useMemo } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatCurrency } from '@/utils/format';
 
-// Paleta em tons de verde (maior valor = verde mais escuro)
+// Paleta padrão em tons de verde (maior valor = verde mais escuro)
 const GREEN_SCALE = ['#065F46','#0F766E','#15803D','#16A34A','#22C55E','#4ADE80','#86EFAC','#BBF7D0'];
+// Paleta para despesas: vermelho (maior valor) → laranja (menor valor)
+export const ORANGE_RED_SCALE = ['#991B1B','#B91C1C','#DC2626','#EF4444','#F97316','#FB923C','#FDBA74','#FED7AA'];
 const OTHERS_COLOR = '#9CA3AF';
 
 type Row = { categoria: string; valor: number };
 type Props = {
   rows: Row[];
   onLegendClick?: (categoria: string) => void;
+  colors?: string[];
 };
 
 const percentFormatter = new Intl.NumberFormat('pt-BR', { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-export default function DoughnutChart({ rows, onLegendClick }: Props) {
+export default function DoughnutChart({ rows, onLegendClick, colors }: Props) {
   const { dataFinal, total } = useMemo(() => {
     const validRows = rows.filter(r => r.valor > 0);
     const totalValue = validRows.reduce((s, r) => s + r.valor, 0);
@@ -52,6 +55,7 @@ export default function DoughnutChart({ rows, onLegendClick }: Props) {
   };
 
   const hasData = total > 0 && dataForChart.length > 0;
+  const colorScale = colors && colors.length > 0 ? colors : GREEN_SCALE;
   const visibleLegendCount = Math.min(dataForChart.length, 3);
   const legendRowPx = 56; // aprox altura de cada linha
   const legendMaxHeight = visibleLegendCount * legendRowPx;
@@ -74,7 +78,7 @@ export default function DoughnutChart({ rows, onLegendClick }: Props) {
               isAnimationActive={false}
             >
               {dataForChart.map((entry, i) => {
-                const color = entry.categoria === 'Outras' ? OTHERS_COLOR : GREEN_SCALE[i % GREEN_SCALE.length];
+                const color = entry.categoria === 'Outras' ? OTHERS_COLOR : colorScale[i % colorScale.length];
                 return <Cell key={`cell-${i}`} fill={color} />;
               })}
             </Pie>
@@ -97,7 +101,7 @@ export default function DoughnutChart({ rows, onLegendClick }: Props) {
             title={d.categoria === 'Outras' ? 'Categoria agregada' : `Ver detalhes de ${d.categoria}`}
           >
             <div className="flex items-center gap-3 min-w-0">
-              <span className="inline-block w-3.5 h-3.5 rounded-full shrink-0" style={{ background: d.categoria === 'Outras' ? OTHERS_COLOR : GREEN_SCALE[i % GREEN_SCALE.length] }} />
+              <span className="inline-block w-3.5 h-3.5 rounded-full shrink-0" style={{ background: d.categoria === 'Outras' ? OTHERS_COLOR : colorScale[i % colorScale.length] }} />
               <span className="truncate text-gray-800 dark:text-slate-100">{d.categoria}</span>
             </div>
             <div className="text-right shrink-0">

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import DoughnutChart from '@/components/DoughnutChart';
+import DoughnutChart, { ORANGE_RED_SCALE } from '@/components/DoughnutChart';
 import GraficoBarrasESI from '@/components/GraficoBarrasESI';
 import { TransacaoBanco, CompraCartao, ParcelaCartao, Categoria, TipoCategoria } from '@/types/types';
 
@@ -115,7 +115,7 @@ const ChartContainer: React.FC<ChartContainerProps> = ({ transacoes, compras, pa
         </div>
       </div>
       <div className="mt-2">
-        {activeTab === 'categorias' && <DoughnutChart rows={despesasPorCategoria} />}
+        {activeTab === 'categorias' && <DoughnutChart rows={despesasPorCategoria} colors={ORANGE_RED_SCALE} />}
         {activeTab === 'evolucao' && <GraficoBarrasESI data={historicoMensal} />}
       </div>
     </div>
