@@ -5,7 +5,6 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
 import { useAppContext } from '@/context/AppContext';
 import { TipoCategoria, ContaBancaria } from '@/types/types';
-import { useAppContext } from '@/context/AppContext';
 import { transactionsService } from '@/services/transactionsService';
 
 export default function ContasExtratoPageWrapper() {

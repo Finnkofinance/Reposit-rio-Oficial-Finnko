@@ -87,6 +87,17 @@ const NovaTransacaoModal: React.FC<NovaTransacaoModalProps> = ({
         alert("Por favor, preencha todos os campos da transferência corretamente. A conta de origem e destino devem ser diferentes.");
         return;
       }
+      // Validar data >= data_inicial das duas contas
+      const origem = contas.find(c => c.id === contaId);
+      const destino = contas.find(c => c.id === contaDestinoId);
+      if (origem && data < origem.data_inicial) {
+        alert(`A data não pode ser anterior ao início da conta de origem (${origem.data_inicial}).`);
+        return;
+      }
+      if (destino && data < destino.data_inicial) {
+        alert(`A data não pode ser anterior ao início da conta de destino (${destino.data_inicial}).`);
+        return;
+      }
       onSaveTransferencia({
         origem_id: contaId,
         destino_id: contaDestinoId,
@@ -97,6 +108,12 @@ const NovaTransacaoModal: React.FC<NovaTransacaoModalProps> = ({
     } else {
       if (!contaId || !descricao.trim() || !valor || !categoriaId || valorNum <= 0) {
         alert("Por favor, preencha todos os campos corretamente.");
+        return;
+      }
+      // Validar data >= data_inicial da conta selecionada
+      const conta = contas.find(c => c.id === contaId);
+      if (conta && data < conta.data_inicial) {
+        alert(`A data não pode ser anterior ao início da conta (${conta.data_inicial}).`);
         return;
       }
       onSave({

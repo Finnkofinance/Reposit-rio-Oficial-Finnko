@@ -11,6 +11,7 @@ import { formatDate } from '@/utils/format';
 import { CORES_CARTAO, CORES_BANCO } from '@/constants.tsx';
 import { formatCurrency, calculateSaldo } from '@/utils/format';
 import MobileSelector from '@/components/MobileSelector';
+import { useAppContext } from '@/context/AppContext';
 
 const getTodayString = () => new Date().toISOString().split('T')[0];
 
@@ -58,6 +59,7 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
   toggleTransactionRealizado, modalState, openModal, closeModal, selectedView, setSelectedView, selectedMonth, onMonthChange,
   navigationState, clearNavigationState
 }) => {
+  const { setConfirmation } = useAppContext();
   type SortKey = keyof Pick<TransacaoBanco, 'data' | 'descricao' | 'valor' | 'categoria_id'>;
   type SortDirection = 'ascending' | 'descending';
   const [sortConfig, setSortConfig] = useState<{ key: SortKey, direction: SortDirection }>({ key: 'data', direction: 'descending' });
@@ -356,6 +358,39 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
     else openModal('editar-transacao', { transacao: t });
   };
   
+  const handleConfirmDelete = (t: TransacaoBanco) => {
+    const hasRecurrence = !!t.recorrencia_id;
+    const recurrenceButtons = hasRecurrence ? [{
+      label: 'Excluir todas',
+      style: 'danger' as const,
+      onClick: () => {
+        const ids = transacoes.filter(x => x.recorrencia_id === t.recorrencia_id).map(x => x.id);
+        deleteTransacoes(ids);
+        setConfirmation(null);
+      }
+    }] : [];
+    setConfirmation({
+      title: 'Excluir transação?',
+      message: hasRecurrence ? 'Esta transação é recorrente. Deseja excluir apenas esta ou todas as ocorrências?' : 'Esta ação removerá a transação selecionada. Esta ação não pode ser desfeita.',
+      buttons: [
+        { label: 'Cancelar', style: 'secondary', onClick: () => setConfirmation(null) },
+        { label: 'Excluir apenas esta', style: 'danger', onClick: () => { deleteTransacao(t.id); setConfirmation(null); } },
+        ...recurrenceButtons,
+      ]
+    });
+  };
+
+  const handleConfirmRealizacao = (t: TransacaoBanco) => {
+    setConfirmation({
+      title: 'Marcar como realizada?',
+      message: `Deseja marcar a transação "${t.descricao}" como realizada? O valor será descontado do saldo.`,
+      buttons: [
+        { label: 'Cancelar', style: 'secondary', onClick: () => setConfirmation(null) },
+        { label: 'Marcar como realizada', style: 'primary', onClick: () => { toggleTransactionRealizado(t.id); setConfirmation(null); } },
+      ]
+    });
+  };
+  
   // filtros removidos
 
   const requestSort = (key: SortKey) => {
@@ -526,7 +561,7 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
                 </button>
               </div>
             </div>
-            <div className="overflow-y-auto flex-1 transition-all duration-200 ease-out">
+            <div className="overflow-y-auto flex-1 transition-all duration-200 ease-out pb-16">
               {bankHistory.length === 0 && (
                 <div className="text-center text-gray-500 dark:text-gray-400 py-8">Nenhum evento neste período.</div>
               )}
@@ -541,14 +576,13 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
                 const addTopBorder = !(idx === 0 || showDateHeader);
 
                 return (
-                  <>
+                  <React.Fragment key={item.id}>
                     {showDateHeader && (
-                      <div key={`date-${item.id}`} className={`${idx !== 0 ? 'mt-4' : ''} mb-2 text-[12px] sm:text-[13px] text-slate-400`}>
-                        {new Date(item.data).toLocaleDateString('pt-BR')}
+                      <div className={`${idx !== 0 ? 'mt-4' : ''} mb-2 text-[12px] sm:text-[13px] text-slate-400`}>
+                        {formatDate(item.data)}
                       </div>
                     )}
                     <div
-                    key={item.id}
                     tabIndex={0}
                     onKeyDown={(e) => { if (e.key === '.') setOpenMenuId(prev => prev === item.id ? null : item.id); if (e.key === 'Escape') setOpenMenuId(null); }}
                     onClick={() => { if (tx) handleEditClick(tx); }}
@@ -564,9 +598,9 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
                   >
                     {/* Ações swipe (mobile) */}
                     {tx && (
-                      <div className={`absolute inset-y-0 right-0 flex items-center space-x-2 pr-4 sm:hidden transition-transform ${swipedItemId === item.id ? 'translate-x-0' : 'translate-x-full'}`}>
-                        <button onClick={() => handleEditClick(tx)} className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-md">Editar</button>
-                        <button onClick={() => deleteTransacao(tx.id)} className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-3 py-1.5 rounded-md">Excluir</button>
+                      <div className={`absolute inset-y-0 right-0 flex items-center space-x-2 pr-4 sm:hidden transition-transform ${swipedItemId === item.id ? 'translate-x-0' : 'translate-x-full'}`} style={{ zIndex: 10 }}>
+                        <button onClick={(e) => { e.stopPropagation(); handleEditClick(tx); }} className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-md">Editar</button>
+                        <button onClick={(e) => { e.stopPropagation(); handleConfirmDelete(tx); }} className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-3 py-1.5 rounded-md">Excluir</button>
                       </div>
                     )}
 
@@ -582,13 +616,26 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
                           {/* Em mobile, valor será exibido na coluna da direita para alinhamento perfeito */}
                         </div>
                         {/* Linha 2: data • descrição */}
-                        <div className="text-[13px] text-gray-500 dark:text-gray-400 mt-1">{new Date(item.data).toLocaleDateString('pt-BR')}{item.subtitulo ? ` • ${item.subtitulo}` : ''}</div>
+                        <div className="text-[13px] text-gray-500 dark:text-gray-400 mt-1">{formatDate(item.data)}{item.subtitulo ? ` • ${item.subtitulo}` : ''}</div>
                         {/* Linha 3: badges */}
                         <div className="flex items-center flex-wrap gap-2 mt-1.5">
                           {categoria && (
                             <span className="inline-flex items-center h-6 px-2 rounded-md text-xs font-medium bg-gray-700 text-gray-200">{categoria.nome}</span>
                           )}
-                          <span className={`inline-flex items-center h-6 px-2 rounded-md text-xs font-semibold ${realizado ? 'bg-emerald-900 text-emerald-400' : 'bg-amber-900 text-amber-400'}`}>{realizado ? 'Realizado' : 'Previsto'}</span>
+                          <button 
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              if (!realizado && tx) handleConfirmRealizacao(tx); 
+                            }} 
+                            disabled={realizado}
+                            className={`inline-flex items-center h-6 px-2 rounded-md text-xs font-semibold transition-colors ${
+                              realizado 
+                                ? 'bg-emerald-900 text-emerald-400' 
+                                : 'bg-amber-900 text-amber-400 hover:bg-amber-800 cursor-pointer'
+                            } ${realizado ? 'cursor-default' : ''}`}
+                          >
+                            {realizado ? 'Realizado' : 'Previsto'}
+                          </button>
                         </div>
                       </div>
                       {/* Col-10–12 valor + menu */}
@@ -607,12 +654,12 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
                               <EllipsisVertical className="size-5 opacity-70" />
                             </button>
                             {openMenuId === item.id && (
-                              <div className="absolute right-0 z-50 -translate-y-1 mt-2 w-40 rounded-md border border-slate-700/60 bg-slate-800 p-1 shadow-lg">
-                                <button className="flex w-full items-center gap-2 rounded px-2 py-1.5 hover:bg-slate-700/60" onClick={() => { handleEditClick(tx); setOpenMenuId(null); }}>
+                              <div className="absolute right-0 z-50 -translate-y-1 mt-2 w-40 rounded-md border border-slate-700/60 bg-slate-800 p-1 shadow-lg" style={{ zIndex: 20 }}>
+                                <button className="flex w-full items-center gap-2 rounded px-2 py-1.5 hover:bg-slate-700/60" onClick={(e) => { e.stopPropagation(); handleEditClick(tx); setOpenMenuId(null); }}>
                                   <Pencil className="size-4" /> Editar
                                 </button>
                                 <div className="my-1 h-px bg-slate-700/60" />
-                                <button className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-rose-400 hover:bg-rose-500/10" onClick={() => { deleteTransacao(tx.id); setOpenMenuId(null); }}>
+                                <button className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-rose-400 hover:bg-rose-500/10" onClick={(e) => { e.stopPropagation(); handleConfirmDelete(tx); setOpenMenuId(null); }}>
                                   <Trash2 className="size-4" /> Excluir
                                 </button>
                               </div>
@@ -622,7 +669,7 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
                       </div>
                     </div>
                   </div>
-                  </>
+                  </React.Fragment>
                 );
               })}
               {canToggleHistory && bankHistory.length > 0 && (

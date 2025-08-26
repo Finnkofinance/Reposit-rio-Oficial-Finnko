@@ -48,6 +48,12 @@ const EditarTransacaoModal: React.FC<EditarTransacaoModalProps> = ({
       alert("Por favor, preencha todos os campos corretamente.");
       return;
     }
+    // Validar data >= data_inicial da conta selecionada
+    const conta = contas.find(c => c.id === contaId);
+    if (conta && data < conta.data_inicial) {
+      alert(`A data não pode ser anterior ao início da conta (${conta.data_inicial}).`);
+      return;
+    }
 
     onSave({
       ...transacaoToEdit,

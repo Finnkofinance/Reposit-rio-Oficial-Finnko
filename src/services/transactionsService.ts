@@ -114,13 +114,14 @@ export const transactionsService = {
     return newTransactions;
   },
 
-  createTransfer: (data: { origem_id: string; destino_id: string; valor: number; data: string; descricao: string; }, contas: any[]): TransacaoBanco[] => {
+  createTransfer: (data: { origem_id: string; destino_id: string; valor: number; data: string; descricao: string; }, contas: any[], categorias?: any[]): TransacaoBanco[] => {
     const { origem_id, destino_id, valor, data: date, descricao } = data;
     const id1 = crypto.randomUUID();
     const id2 = crypto.randomUUID();
     const [debitId, creditId] = id1 < id2 ? [id1, id2] : [id2, id1];
 
-    const transferenciaCategoriaId = 't3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e70';
+    // Busca a categoria de transferência dinamicamente
+    const transferenciaCategoriaId = categorias?.find(c => c.sistema && c.tipo === TipoCategoria.Transferencia && c.nome === 'Transferência')?.id || 't3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e70';
     
     const contaOrigem = contas.find(c => c.id === origem_id)?.nome;
     const contaDestino = contas.find(c => c.id === destino_id)?.nome;
@@ -244,5 +245,12 @@ export const transactionsService = {
     } catch (error) {
       console.error('Error deleting transactions by account:', error);
     }
+  },
+
+  // Atualização individual de transação (versão simples)
+  updateSingle: async (transacao: TransacaoBanco): Promise<void> => {
+    // Esta função foi desabilitada para evitar conflitos com o save em lote
+    // A persistência será feita através do useEffect automático
+    return;
   }
 };

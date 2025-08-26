@@ -95,7 +95,7 @@ const Layout = () => {
 
     // Context hooks
     const { contas, addConta } = useAccounts();
-    const { transacoes, addTransacao, addRecurringTransacao, addTransferencia, updateTransacao, updateTransferencia, addPayment, deleteTransacao } = useTransactions();
+    const { transacoes, addTransacao, addRecurringTransacao, addTransferencia, updateTransacao, updateTransferencia, addPayment, deleteTransacao, deleteTransacoes } = useTransactions();
     const { cartoes, compras, addCompraCartao, updateCompraCartao } = useCards();
     const { categorias } = useCategories();
 
@@ -220,7 +220,7 @@ const Layout = () => {
     };
 
     const handleAddTransferencia = (data: any) => {
-        addTransferencia(data, contas);
+        addTransferencia(data, contas, categorias);
         showToast('Transferência registrada!', 'success');
     };
 
@@ -352,14 +352,30 @@ const Layout = () => {
                         isOpen={true}
                         onClose={closeModal}
                         onSave={handleUpdateTransacao}
-                        onDelete={(id) => setConfirmation({
-                            title: 'Excluir transação?',
-                            message: 'Esta ação não pode ser desfeita.',
-                            buttons: [
-                                { label: 'Cancelar', style: 'secondary', onClick: () => setConfirmation(null) },
-                                { label: 'Excluir', style: 'danger', onClick: () => { deleteTransacao(id); setConfirmation(null); closeModal(); } }
-                            ]
-                        })}
+                        onDelete={(id) => {
+                            const tx = modalState.data?.transacao as TransacaoBanco | undefined;
+                            const hasRecurrence = !!tx?.recorrencia_id;
+                            const recurrenceButtons = hasRecurrence ? [{
+                                label: 'Excluir todas',
+                                style: 'danger' as const,
+                                onClick: () => {
+                                    if (!tx?.recorrencia_id) return;
+                                    const ids = transacoes.filter(t => t.recorrencia_id === tx.recorrencia_id).map(t => t.id);
+                                    deleteTransacoes(ids);
+                                    setConfirmation(null);
+                                    closeModal();
+                                }
+                            }] : [];
+                            setConfirmation({
+                                title: 'Excluir transação?',
+                                message: hasRecurrence ? 'Esta transação é recorrente. Deseja excluir apenas esta ou todas as ocorrências?' : 'Esta ação não pode ser desfeita.',
+                                buttons: [
+                                    { label: 'Cancelar', style: 'secondary', onClick: () => setConfirmation(null) },
+                                    { label: 'Excluir apenas esta', style: 'danger', onClick: () => { deleteTransacao(id); setConfirmation(null); closeModal(); } },
+                                    ...recurrenceButtons,
+                                ]
+                            });
+                        }}
                         transacaoToEdit={modalState.data?.transacao}
                         contas={contas}
                         categorias={categorias}
@@ -380,6 +396,7 @@ const Layout = () => {
                             ]
                         })}
                         transferenciaToEdit={modalState.data?.transferencia}
+                        contas={contas}
                     />
                 )}
                 

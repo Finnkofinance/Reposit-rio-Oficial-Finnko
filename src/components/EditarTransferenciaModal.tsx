@@ -9,10 +9,12 @@ interface EditarTransferenciaModalProps {
   onSave: (data: { originalTxId: string; valor: number; data: string; descricao: string; }) => void;
   onDelete?: (id: string) => void;
   transferenciaToEdit: TransacaoBanco;
+  contas?: { id: string; data_inicial: string; nome: string }[];
+  otherAccountId?: string;
 }
 
 const EditarTransferenciaModal: React.FC<EditarTransferenciaModalProps> = ({
-  isOpen, onClose, onSave, onDelete, transferenciaToEdit
+  isOpen, onClose, onSave, onDelete, transferenciaToEdit, contas, otherAccountId
 }) => {
   const [data, setData] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -34,6 +36,19 @@ const EditarTransferenciaModal: React.FC<EditarTransferenciaModalProps> = ({
     if (!data || valorNum <= 0) {
       alert("Por favor, preencha todos os campos corretamente.");
       return;
+    }
+    // Validar data mínima para ambas as contas
+    if (contas) {
+      const contaOrigem = contas.find(c => c.id === transferenciaToEdit.conta_id);
+      const contaDestino = otherAccountId ? contas.find(c => c.id === otherAccountId) : undefined;
+      if (contaOrigem && data < contaOrigem.data_inicial) {
+        alert(`A data não pode ser anterior ao início da conta de origem (${contaOrigem.data_inicial}).`);
+        return;
+      }
+      if (contaDestino && data < contaDestino.data_inicial) {
+        alert(`A data não pode ser anterior ao início da conta de destino (${contaDestino.data_inicial}).`);
+        return;
+      }
     }
 
     onSave({

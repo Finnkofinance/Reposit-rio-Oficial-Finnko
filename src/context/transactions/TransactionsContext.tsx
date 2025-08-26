@@ -7,7 +7,7 @@ interface TransactionsContextType {
   transacoes: TransacaoBanco[];
   addTransacao: (transacaoData: Omit<TransacaoBanco, 'id' | 'createdAt' | 'updatedAt' | 'tipo'>, categoria: Categoria) => void;
   addRecurringTransacao: (transacaoData: Omit<TransacaoBanco, 'id' | 'createdAt' | 'updatedAt' | 'tipo'>, categoria: Categoria) => void;
-  addTransferencia: (data: { origem_id: string; destino_id: string; valor: number; data: string; descricao: string; }, contas: any[]) => void;
+  addTransferencia: (data: { origem_id: string; destino_id: string; valor: number; data: string; descricao: string; }, contas: any[], categorias?: any[]) => void;
   updateTransacao: (tx: TransacaoBanco, categoria: Categoria) => void;
   updateTransferencia: (data: { originalTxId: string; valor: number; data: string; descricao: string; }, contas: any[]) => void;
   deleteTransacao: (id: string) => void;
@@ -58,8 +58,8 @@ export const TransactionsProvider: React.FC<TransactionsProviderProps> = ({ chil
     setTransacoes(prev => [...prev, ...newTransactions]);
   };
 
-  const addTransferencia = (data: { origem_id: string; destino_id: string; valor: number; data: string; descricao: string; }, contas: any[]) => {
-    const transferTxs = transactionsService.createTransfer(data, contas);
+  const addTransferencia = (data: { origem_id: string; destino_id: string; valor: number; data: string; descricao: string; }, contas: any[], categorias?: any[]) => {
+    const transferTxs = transactionsService.createTransfer(data, contas, categorias);
     setTransacoes(prev => [...prev, ...transferTxs]);
   };
 
@@ -105,7 +105,13 @@ export const TransactionsProvider: React.FC<TransactionsProviderProps> = ({ chil
   };
 
   const toggleTransactionRealizado = (id: string) => {
-    setTransacoes(prev => prev.map(t => t.id === id ? { ...t, realizado: !t.realizado } : t));
+    setTransacoes(prev => prev.map(t => 
+      t.id === id ? { 
+        ...t, 
+        realizado: !t.realizado, 
+        updatedAt: new Date().toISOString() 
+      } : t
+    ));
   };
 
   const addPayment = (cartaoId: string, contaId: string, valor: number, data: string, competencia: string, cartaoNome: string) => {

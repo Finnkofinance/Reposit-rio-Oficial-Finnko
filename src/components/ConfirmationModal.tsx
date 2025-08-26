@@ -35,7 +35,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ data, onClose }) 
             title={data.title}
             zIndexClass="z-[999]"
             footer={
-                <div onClick={(e) => e.stopPropagation()}>
+                <div onClick={(e) => e.stopPropagation()} className="flex space-x-3">
                     {data.buttons.map((btn, index) => (
                         <button
                             key={index}
