@@ -321,7 +321,7 @@ const CartoesPage: React.FC<CartoesPageProps> = (props) => {
   }
 
   return (
-    <div className="animate-fade-in flex flex-col h-full md:flex-row md:space-x-6">
+    <div className="animate-fade-in flex flex-col min-h-full md:h-full md:flex-row md:space-x-6">
         {/* Card Navigation */}
         <div className="hidden md:flex flex-col w-64 flex-shrink-0">
              {/* Desktop Sidebar */}
@@ -355,7 +355,7 @@ const CartoesPage: React.FC<CartoesPageProps> = (props) => {
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col min-h-0 md:overflow-hidden">
             <DatePeriodSelector 
               title="Cartões de Crédito"
               selectedMonth={selectedMonth} 
@@ -404,14 +404,14 @@ const CartoesPage: React.FC<CartoesPageProps> = (props) => {
                 <FaturaCard title="Próxima Fatura" fatura={faturas.proxima} faturaKey="proxima" />
             </div>
             
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 flex-grow flex flex-col overflow-hidden shadow-sm dark:shadow-none border dark:border-transparent">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 flex-grow flex flex-col shadow-sm dark:shadow-none border dark:border-transparent md:overflow-hidden">
                 <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Histórico de Compras {selectedCartao ? `(${selectedCartao.apelido})` : '(Todos)'}</h3>
                 <div className="flex space-x-2">
                     <button onClick={() => openModal('nova-compra-cartao', { cartaoId: selectedView !== 'all' ? selectedView : undefined })} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-3 rounded-lg flex items-center space-x-2 text-sm"> <ShoppingCart size={16}/><span>Nova Compra</span> </button>
                 </div>
                 </div>
-                <div className="overflow-y-auto flex-grow text-gray-700 dark:text-gray-300">
+                <div className="overflow-y-auto md:flex-grow text-gray-700 dark:text-gray-300">
                     {/* Desktop Table */}
                     <table className="w-full text-center text-sm hidden md:table">
                         <thead className="sticky top-0 bg-white dark:bg-gray-800 z-10"><tr className="text-gray-600 dark:text-gray-300"><th className="p-3 font-semibold">Data</th>{selectedView === 'all' && <th className="p-3 font-semibold">Cartão</th>}<th className="p-3 font-semibold">Descrição</th><th className="p-3 font-semibold">Categoria</th><th className="p-3 font-semibold">Valor</th><th className="p-3 font-semibold">Parcelas</th><th className="p-3 font-semibold">Ações</th></tr></thead>
