@@ -29,17 +29,17 @@ interface DayData {
 const Tooltip: React.FC<{ content: { x: number, y: number, dayData: DayData } }> = ({ content }) => {
     const { x, y, dayData } = content;
     const style: React.CSSProperties = {
-        position: 'absolute',
-        left: `${x + 15}px`,
-        top: `${y + 15}px`,
-        transform: 'translateY(-100%)',
+        position: 'fixed',
+        left: `${x}px`,
+        top: `${y}px`,
+        transform: 'translate(-50%, -100%)',
         pointerEvents: 'none',
-        zIndex: 20,
+        zIndex: 9999,
     };
 
     return (
-        <div style={style} className="p-2 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl text-xs w-64">
-            <p className="font-bold mb-1 text-gray-900 dark:text-white">{formatDate(dayData.data)}</p>
+        <div style={style} className="p-3 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border border-gray-300 dark:border-gray-600 rounded-lg shadow-2xl text-xs w-64 max-w-xs">
+            <p className="font-bold mb-2 text-gray-900 dark:text-white">{formatDate(dayData.data)}</p>
             <ul className="space-y-1 max-h-32 overflow-y-auto">
                 {dayData.transactions.map((t) => (
                     <li key={t.id} className="flex justify-between space-x-2">
@@ -486,14 +486,38 @@ const FluxoCaixaPage: React.FC<FluxoCaixaPageProps> = ({ contas, transacoes, cat
       setTooltip(null);
       return;
     }
-    if(tableContainerRef.current) {
-        const rect = tableContainerRef.current.getBoundingClientRect();
-        setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, dayData });
+    
+    // Usar coordenadas da viewport (clientX/clientY) para position: fixed
+    const mouseX = e.clientX;
+    const mouseY = e.clientY;
+    
+    // Dimensões da viewport
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    // Calcular posição final
+    let tooltipX = mouseX;
+    let tooltipY = mouseY - 10; // 10px acima do cursor
+    
+    // Verificar bordas da tela
+    // Tooltip tem width de 256px (w-64), então verificar se cabe
+    if (tooltipX + 128 > viewportWidth) { // 128 é metade do width para centralizar
+      tooltipX = viewportWidth - 140; // Deixar um pouco de margem
     }
+    if (tooltipX - 128 < 0) {
+      tooltipX = 140;
+    }
+    
+    // Se não couber acima, mostrar abaixo
+    if (tooltipY - 100 < 0) { // Estimativa de altura do tooltip
+      tooltipY = mouseY + 30;
+    }
+    
+    setTooltip({ x: tooltipX, y: tooltipY, dayData });
   };
 
   return (
-    <div className="animate-fade-in flex flex-col h-full">
+    <div className="animate-fade-in flex flex-col h-full pb-20">
       <div className="flex flex-col md:flex-row justify-between items-center md:items-start">
         <DatePeriodSelector 
             title="Fluxo de Caixa"
@@ -562,13 +586,15 @@ const FluxoCaixaPage: React.FC<FluxoCaixaPageProps> = ({ contas, transacoes, cat
               </tr>
             )}
           </tbody>
-          <tfoot className="bg-gray-50 dark:bg-gray-700/50 sticky bottom-0">
-             <tr className="border-t-2 border-gray-300 dark:border-gray-600">
-                <th className="py-1.5 px-0.5 font-semibold text-xs text-gray-600 dark:text-gray-300">Totais</th>
-                <td className="py-1.5 px-0.5 text-xs text-right font-bold text-green-600 dark:text-green-500">{formatCurrency(totais.entradas)}</td>
-                <td className="py-1.5 px-0.5 text-xs text-right font-bold text-red-600 dark:text-red-500">{formatCurrency(totais.saidas)}</td>
-                <td className="py-1.5 px-0.5 text-xs text-right font-bold text-blue-600 dark:text-blue-400">{formatCurrency(totais.investimentos)}</td>
-                <td className="py-1.5 px-0.5"></td>
+          <tfoot className="bg-gray-100 dark:bg-gray-800 sticky bottom-0 border-t-2 border-gray-300 dark:border-gray-600">
+             <tr>
+                <th className="py-3 px-2 font-semibold text-sm text-gray-800 dark:text-gray-200">Totais do Mês</th>
+                <td className="py-3 px-2 text-sm text-right font-bold text-green-600 dark:text-green-400">{formatCurrency(totais.entradas)}</td>
+                <td className="py-3 px-2 text-sm text-right font-bold text-red-600 dark:text-red-400">{formatCurrency(totais.saidas)}</td>
+                <td className="py-3 px-2 text-sm text-right font-bold text-blue-600 dark:text-blue-400">{formatCurrency(totais.investimentos)}</td>
+                <td className="py-3 px-2 text-sm text-right font-bold text-gray-800 dark:text-gray-200">
+                  {formatCurrency(fluxoData.length > 0 ? fluxoData[fluxoData.length - 1].saldoDiario : 0)}
+                </td>
              </tr>
           </tfoot>
         </table>
@@ -585,6 +611,29 @@ const FluxoCaixaPage: React.FC<FluxoCaixaPageProps> = ({ contas, transacoes, cat
                 onDelete={handleDeleteSimulation}
             />
        )}
+
+      {/* Barra de totais fixa no rodapé */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-300 dark:border-gray-600 px-4 py-3 z-50 shadow-lg">
+        <div className="flex justify-between items-center max-w-screen-xl mx-auto">
+          <span className="font-semibold text-sm text-gray-800 dark:text-gray-200">
+            Resumo do Mês:
+          </span>
+          <div className="flex space-x-4 text-sm font-bold">
+            <span className="text-green-600 dark:text-green-400">
+              Entradas: {formatCurrency(totais.entradas)}
+            </span>
+            <span className="text-red-600 dark:text-red-400">
+              Saídas: {formatCurrency(totais.saidas)}
+            </span>
+            <span className="text-blue-600 dark:text-blue-400">
+              Investimentos: {formatCurrency(totais.investimentos)}
+            </span>
+            <span className="text-gray-800 dark:text-gray-200 border-l border-gray-300 dark:border-gray-600 pl-4">
+              Saldo Final: {formatCurrency(fluxoData.length > 0 ? fluxoData[fluxoData.length - 1].saldoDiario : 0)}
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
