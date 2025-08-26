@@ -1,10 +1,13 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { ContaBancaria, TransacaoBanco, TipoCategoria, Categoria, CompraCartao, ParcelaCartao, Cartao } from '@/types/types';
 import { formatCurrency, formatDate, formatDateShort, calculateSaldo, splitInstallments } from '@/utils/format';
-import { AlertTriangle, X, Trash2, Pencil, Plus, FlaskConical } from 'lucide-react';
+import { AlertTriangle, X, Trash2, Pencil, Plus, FlaskConical, RotateCcw } from 'lucide-react';
 import DatePeriodSelector from '@/components/DatePeriodSelector';
 import Modal from '@/components/Modal';
 import CurrencyInput from '@/components/CurrencyInput';
+import ColumnResizer from '@/components/table/ColumnResizer';
+import { useTableLayout } from '@/context/tableLayout/useTableLayout';
+import { ColumnKey } from '@/services/columnWidthService';
 
 interface FluxoCaixaPageProps {
   contas: ContaBancaria[];
@@ -245,6 +248,7 @@ const FluxoCaixaPage: React.FC<FluxoCaixaPageProps> = ({ contas, transacoes, cat
   const [manageSimModalState, setManageSimModalState] = useState<{ date: string; type: TipoCategoria } | null>(null);
   const [tooltip, setTooltip] = useState<{ x: number, y: number, dayData: DayData } | null>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
+  const { widths, reset } = useTableLayout();
   
   const exitSimulation = () => {
     setIsSimulating(false);
@@ -517,24 +521,34 @@ const FluxoCaixaPage: React.FC<FluxoCaixaPageProps> = ({ contas, transacoes, cat
   };
 
   return (
-    <div className="animate-fade-in flex flex-col h-full pb-20">
+    <div className="animate-fade-in flex flex-col h-full">
       <div className="flex flex-col md:flex-row justify-between items-center md:items-start">
         <DatePeriodSelector 
             title="Fluxo de Caixa"
             selectedMonth={selectedMonth} 
             onMonthChange={onMonthChange} 
         />
-        <button 
-            onClick={isSimulating ? exitSimulation : handleStartSimulation}
-            className={`mb-4 md:mb-0 font-bold py-2 px-4 rounded-lg flex items-center space-x-2 transition-colors ${
-                isSimulating 
-                ? 'bg-red-600 hover:bg-red-700 text-white' 
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
-            }`}
-        >
-            {isSimulating ? <X size={18} /> : <FlaskConical size={18} />}
-            <span>{isSimulating ? 'Sair da Simulação' : 'Simular Cenários'}</span>
-        </button>
+        <div className="flex space-x-2">
+          <button 
+              onClick={reset}
+              className="mb-4 md:mb-0 font-bold py-2 px-3 rounded-lg flex items-center space-x-2 transition-colors bg-gray-500 hover:bg-gray-600 text-white"
+              title="Redefinir larguras das colunas"
+          >
+              <RotateCcw size={16} />
+              <span className="hidden sm:inline">Redefinir Colunas</span>
+          </button>
+          <button 
+              onClick={isSimulating ? exitSimulation : handleStartSimulation}
+              className={`mb-4 md:mb-0 font-bold py-2 px-4 rounded-lg flex items-center space-x-2 transition-colors ${
+                  isSimulating 
+                  ? 'bg-red-600 hover:bg-red-700 text-white' 
+                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+              }`}
+          >
+              {isSimulating ? <X size={18} /> : <FlaskConical size={18} />}
+              <span>{isSimulating ? 'Sair da Simulação' : 'Simular Cenários'}</span>
+          </button>
+        </div>
       </div>
 
       <div 
@@ -544,13 +558,35 @@ const FluxoCaixaPage: React.FC<FluxoCaixaPageProps> = ({ contas, transacoes, cat
         }`}
       >
         <table className="w-full text-left">
+          <colgroup>
+            <col style={{ width: widths.date }} />
+            <col style={{ width: widths.income }} />
+            <col style={{ width: widths.expense }} />
+            <col style={{ width: widths.invest }} />
+            <col style={{ width: widths.balance }} />
+          </colgroup>
           <thead className="bg-gray-50 dark:bg-gray-700/50 sticky top-0 z-10">
             <tr>
-              <th className="py-1.5 px-0.5 font-semibold text-xs text-gray-600 dark:text-gray-300 w-auto">Data</th>
-              <th className="py-1.5 px-0.5 font-semibold text-xs text-gray-600 dark:text-gray-300 text-right">Entradas</th>
-              <th className="py-1.5 px-0.5 font-semibold text-xs text-gray-600 dark:text-gray-300 text-right">Saídas</th>
-              <th className="py-1.5 px-0.5 font-semibold text-xs text-gray-600 dark:text-gray-300 text-right">Invest.</th>
-              <th className="py-1.5 px-0.5 font-semibold text-xs text-gray-600 dark:text-gray-300 text-right">Saldo</th>
+              <th className="py-1.5 px-2 font-semibold text-xs text-gray-600 dark:text-gray-300 text-center relative border-r border-transparent">
+                Data
+                <ColumnResizer column={'date' as ColumnKey} />
+              </th>
+              <th className="py-1.5 px-2 font-semibold text-xs text-gray-600 dark:text-gray-300 text-center relative border-r border-transparent">
+                Entradas
+                <ColumnResizer column={'income' as ColumnKey} />
+              </th>
+              <th className="py-1.5 px-2 font-semibold text-xs text-gray-600 dark:text-gray-300 text-center relative border-r border-transparent">
+                Saídas
+                <ColumnResizer column={'expense' as ColumnKey} />
+              </th>
+              <th className="py-1.5 px-2 font-semibold text-xs text-gray-600 dark:text-gray-300 text-center relative border-r border-transparent">
+                Invest.
+                <ColumnResizer column={'invest' as ColumnKey} />
+              </th>
+              <th className="py-1.5 px-2 font-semibold text-xs text-gray-600 dark:text-gray-300 text-center relative border-r border-transparent">
+                Saldo
+                <ColumnResizer column={'balance' as ColumnKey} />
+              </th>
             </tr>
           </thead>
           <tbody onMouseLeave={() => setTooltip(null)}>
@@ -560,20 +596,20 @@ const FluxoCaixaPage: React.FC<FluxoCaixaPageProps> = ({ contas, transacoes, cat
                 className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30"
                 onMouseMove={(e) => handleMouseMove(e, dia)}
               >
-                <td className="py-1.5 px-0.5 text-xs text-gray-800 dark:text-gray-200 font-mono">{formatDateShort(dia.data)}</td>
+                <td className="py-1.5 px-2 text-xs text-center text-gray-800 dark:text-gray-200 font-mono">{formatDateShort(dia.data)}</td>
                 <td 
-                    className={`py-1.5 px-0.5 text-xs text-right rounded-md ${dia.entradas > 0 ? 'text-green-600 dark:text-green-500 bg-green-500/10' : 'text-gray-500 dark:text-gray-400'} ${isSimulating ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600/50' : ''}`}
+                    className={`py-1.5 px-2 text-xs text-center rounded-md ${dia.entradas > 0 ? 'text-green-600 dark:text-green-500 bg-green-500/10' : 'text-gray-500 dark:text-gray-400'} ${isSimulating ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600/50' : ''}`}
                     onClick={() => handleCellClick(dia.data, TipoCategoria.Entrada)}
                 >{formatCurrency(dia.entradas)}</td>
                 <td 
-                    className={`py-1.5 px-0.5 text-xs text-right rounded-md ${dia.saidas > 0 ? 'text-red-600 dark:text-red-500 bg-red-500/10' : 'text-gray-500 dark:text-gray-400'} ${isSimulating ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600/50' : ''}`}
+                    className={`py-1.5 px-2 text-xs text-center rounded-md ${dia.saidas > 0 ? 'text-red-600 dark:text-red-500 bg-red-500/10' : 'text-gray-500 dark:text-gray-400'} ${isSimulating ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600/50' : ''}`}
                     onClick={() => handleCellClick(dia.data, TipoCategoria.Saida)}
                 >{formatCurrency(dia.saidas)}</td>
                  <td 
-                    className={`py-1.5 px-0.5 text-xs text-right rounded-md ${dia.investimentos > 0 ? 'text-blue-600 dark:text-blue-400 bg-blue-500/10' : 'text-gray-500 dark:text-gray-400'} ${isSimulating ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600/50' : ''}`}
+                    className={`py-1.5 px-2 text-xs text-center rounded-md ${dia.investimentos > 0 ? 'text-blue-600 dark:text-blue-400 bg-blue-500/10' : 'text-gray-500 dark:text-gray-400'} ${isSimulating ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600/50' : ''}`}
                     onClick={() => handleCellClick(dia.data, TipoCategoria.Investimento)}
                 >{formatCurrency(dia.investimentos)}</td>
-                <td className="py-1.5 px-0.5 text-xs font-bold text-right text-gray-900 dark:text-white" style={getSaldoCellStyle(dia.saldoDiario)}>
+                <td className="py-1.5 px-2 text-xs font-bold text-center text-gray-900 dark:text-white" style={getSaldoCellStyle(dia.saldoDiario)}>
                     {formatCurrency(dia.saldoDiario)}
                 </td>
               </tr>
@@ -588,11 +624,11 @@ const FluxoCaixaPage: React.FC<FluxoCaixaPageProps> = ({ contas, transacoes, cat
           </tbody>
           <tfoot className="bg-gray-100 dark:bg-gray-800 sticky bottom-0 border-t-2 border-gray-300 dark:border-gray-600">
              <tr>
-                <th className="py-3 px-2 font-semibold text-sm text-gray-800 dark:text-gray-200">Totais do Mês</th>
-                <td className="py-3 px-2 text-sm text-right font-bold text-green-600 dark:text-green-400">{formatCurrency(totais.entradas)}</td>
-                <td className="py-3 px-2 text-sm text-right font-bold text-red-600 dark:text-red-400">{formatCurrency(totais.saidas)}</td>
-                <td className="py-3 px-2 text-sm text-right font-bold text-blue-600 dark:text-blue-400">{formatCurrency(totais.investimentos)}</td>
-                <td className="py-3 px-2 text-sm text-right font-bold text-gray-800 dark:text-gray-200">
+                <th className="py-3 px-2 font-semibold text-sm text-center text-gray-800 dark:text-gray-200">Totais do Mês</th>
+                <td className="py-3 px-2 text-sm text-center font-bold text-green-600 dark:text-green-400">{formatCurrency(totais.entradas)}</td>
+                <td className="py-3 px-2 text-sm text-center font-bold text-red-600 dark:text-red-400">{formatCurrency(totais.saidas)}</td>
+                <td className="py-3 px-2 text-sm text-center font-bold text-blue-600 dark:text-blue-400">{formatCurrency(totais.investimentos)}</td>
+                <td className="py-3 px-2 text-sm text-center font-bold text-gray-800 dark:text-gray-200">
                   {formatCurrency(fluxoData.length > 0 ? fluxoData[fluxoData.length - 1].saldoDiario : 0)}
                 </td>
              </tr>
@@ -611,29 +647,6 @@ const FluxoCaixaPage: React.FC<FluxoCaixaPageProps> = ({ contas, transacoes, cat
                 onDelete={handleDeleteSimulation}
             />
        )}
-
-      {/* Barra de totais fixa no rodapé */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-300 dark:border-gray-600 px-4 py-3 z-50 shadow-lg">
-        <div className="flex justify-between items-center max-w-screen-xl mx-auto">
-          <span className="font-semibold text-sm text-gray-800 dark:text-gray-200">
-            Resumo do Mês:
-          </span>
-          <div className="flex space-x-4 text-sm font-bold">
-            <span className="text-green-600 dark:text-green-400">
-              Entradas: {formatCurrency(totais.entradas)}
-            </span>
-            <span className="text-red-600 dark:text-red-400">
-              Saídas: {formatCurrency(totais.saidas)}
-            </span>
-            <span className="text-blue-600 dark:text-blue-400">
-              Investimentos: {formatCurrency(totais.investimentos)}
-            </span>
-            <span className="text-gray-800 dark:text-gray-200 border-l border-gray-300 dark:border-gray-600 pl-4">
-              Saldo Final: {formatCurrency(fluxoData.length > 0 ? fluxoData[fluxoData.length - 1].saldoDiario : 0)}
-            </span>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

@@ -5,6 +5,9 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useCards } from '@/hooks/useCards';
 import { useCategories } from '@/hooks/useCategories';
 import { useAppContext } from '@/context/AppContext';
+import { useAuth } from '@/features/auth/AuthProvider';
+import { TableLayoutProvider } from '@/context/tableLayout/TableLayoutProvider';
+import { SCREEN_KEY_FLUXO_CAIXA } from '@/services/columnWidthService';
 
 export default function FluxoCaixaPageWrapper() {
   const { contas } = useAccounts();
@@ -12,17 +15,20 @@ export default function FluxoCaixaPageWrapper() {
   const { cartoes, compras, parcelas } = useCards();
   const { categorias } = useCategories();
   const { selectedMonth, setSelectedMonth } = useAppContext();
+  const { user } = useAuth();
 
   return (
-    <FluxoCaixaPage
-      contas={contas}
-      transacoes={transacoes}
-      categorias={categorias}
-      compras={compras}
-      parcelas={parcelas}
-      cartoes={cartoes}
-      selectedMonth={selectedMonth}
-      onMonthChange={setSelectedMonth}
-    />
+    <TableLayoutProvider userId={user?.id} screenKey={SCREEN_KEY_FLUXO_CAIXA}>
+      <FluxoCaixaPage
+        contas={contas}
+        transacoes={transacoes}
+        categorias={categorias}
+        compras={compras}
+        parcelas={parcelas}
+        cartoes={cartoes}
+        selectedMonth={selectedMonth}
+        onMonthChange={setSelectedMonth}
+      />
+    </TableLayoutProvider>
   );
 }
