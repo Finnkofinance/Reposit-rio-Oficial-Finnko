@@ -343,8 +343,8 @@ const CartoesPage: React.FC<CartoesPageProps> = (props) => {
                                <span className="text-sm text-gray-600 dark:text-gray-300">{formatCurrency(cartao.faturaAtual)}</span>
                             </button>
                             <div className="flex flex-shrink-0 space-x-1 pr-3 z-10 text-gray-500 dark:text-current">
-                                <button onClick={(e) => { e.stopPropagation(); openModal('editar-cartao', { cartao }); }} className="p-1.5 rounded-full hover:bg-black/10 dark:hover:bg-black/20" title="Editar Cartão"><Pencil size={16} /></button>
-                                <button onClick={(e) => { e.stopPropagation(); deleteCartao(cartao.id); }} className="p-1.5 rounded-full hover:bg-black/10 dark:hover:bg-black/20" title="Excluir Cartão"><Trash2 size={16} /></button>
+                                <button onClick={(e) => { e.stopPropagation(); openModal('editar-cartao', { cartao }); }} className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600" title="Editar Cartão"><Pencil size={16} /></button>
+                                <button onClick={(e) => { e.stopPropagation(); deleteCartao(cartao.id); }} className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600" title="Excluir Cartão"><Trash2 size={16} /></button>
                             </div>
                         </div>
                     ))}

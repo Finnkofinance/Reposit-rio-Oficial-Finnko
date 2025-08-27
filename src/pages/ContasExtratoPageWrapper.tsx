@@ -104,12 +104,28 @@ export default function ContasExtratoPageWrapper() {
 
   // Confirma exclusão de uma transação individual
   const handleDeleteTransacao = (id: string) => {
+    const tx = transacoes.find(t => t.id === id);
+    if (!tx) return;
+    
+    const hasRecurrence = !!tx.recorrencia_id;
+    const recurrenceButtons = hasRecurrence ? [{
+      label: 'Excluir todas',
+      style: 'danger' as const,
+      onClick: () => {
+        if (!tx?.recorrencia_id) return;
+        const ids = transacoes.filter(t => t.recorrencia_id === tx.recorrencia_id).map(t => t.id);
+        deleteTransacoes(ids);
+        setConfirmation(null);
+      }
+    }] : [];
+    
     setConfirmation({
       title: 'Excluir transação?',
-      message: 'Esta ação removerá a transação selecionada. Esta ação não pode ser desfeita.',
+      message: hasRecurrence ? 'Esta transação é recorrente. Deseja excluir apenas esta ou todas as ocorrências?' : 'Esta ação não pode ser desfeita.',
       buttons: [
         { label: 'Cancelar', style: 'secondary', onClick: () => setConfirmation(null) },
-        { label: 'Excluir', style: 'danger', onClick: () => { deleteTransacao(id); setConfirmation(null); } }
+        { label: 'Excluir apenas esta', style: 'danger', onClick: () => { deleteTransacao(id); setConfirmation(null); } },
+        ...recurrenceButtons,
       ]
     });
   };

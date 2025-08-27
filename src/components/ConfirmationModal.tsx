@@ -29,30 +29,24 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ data, onClose }) 
     };
 
     return (
-        <Modal 
-            isOpen={true} 
-            onClose={onClose} 
-            title={data.title}
-            zIndexClass="z-[999]"
-            footer={
-                <div onClick={(e) => e.stopPropagation()} className="flex space-x-3">
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-[999] flex justify-center items-center">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg mx-4 p-6">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">{data.title}</h3>
+                <p className="text-gray-800 dark:text-gray-200 mb-6">{data.message}</p>
+                <div className="flex space-x-3 justify-end">
                     {data.buttons.map((btn, index) => (
                         <button
                             key={index}
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); btn.onClick(); }}
-                            onMouseDown={(e) => e.stopPropagation()}
-                            onTouchEnd={(e) => e.stopPropagation()}
+                            onClick={btn.onClick}
                             className={`text-white font-bold py-2 px-4 rounded-lg transition-colors ${getButtonClass(btn.style)}`}
                         >
                             {btn.label}
                         </button>
                     ))}
                 </div>
-            }
-        >
-            <p className="text-gray-300">{data.message}</p>
-        </Modal>
+            </div>
+        </div>
     );
 }
 

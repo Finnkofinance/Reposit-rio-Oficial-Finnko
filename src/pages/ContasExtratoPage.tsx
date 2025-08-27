@@ -133,7 +133,17 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
         .reduce((sum, t) => sum + t.valor, 0);
         
     const saidasMes = transacoesMes
-        .filter(t => t.tipo === TipoCategoria.Saida || t.meta_pagamento || (t.tipo === TipoCategoria.Transferencia && isDebitTransfer(t, transacoes)))
+        .filter(t => {
+            // Sempre inclui saídas e pagamentos
+            if (t.tipo === TipoCategoria.Saida || t.meta_pagamento) return true;
+            
+            // Para transferências, só inclui se estiver vendo conta específica (não "todas as contas")
+            if (t.tipo === TipoCategoria.Transferencia && selectedView !== 'all') {
+                return isDebitTransfer(t, transacoes);
+            }
+            
+            return false;
+        })
         .reduce((sum, t) => sum + t.valor, 0);
 
     const investimentosMes = transacoesMes
@@ -265,7 +275,26 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
 
     return transacoes
       .filter(t => t.data >= startDate && t.data <= endDate)
-      .filter(t => contasVisiveisIds.has(t.conta_id))
+      .filter(t => {
+        // Para visualização de "todas as contas", mostra todas as transações normalmente
+        if (selectedView === 'all') return contasVisiveisIds.has(t.conta_id);
+        
+        // Para conta específica, mostra transações da conta
+        if (t.conta_id === selectedView) return true;
+        
+        // TAMBÉM mostra transferências onde esta conta é o destino
+        // A transação de crédito tem conta_id = destino e transferencia_par_id = debit
+        if (t.tipo === TipoCategoria.Transferencia && !t.meta_pagamento && !t.meta_saldo_inicial) {
+          // Se a conta da transação não é a selecionada, mas seu par é da conta selecionada,
+          // então esta é uma transferência recebida na conta selecionada
+          if (t.conta_id !== selectedView && t.transferencia_par_id) {
+            const pair = transacoes.find(p => p.id === t.transferencia_par_id);
+            return pair && pair.conta_id === selectedView;
+          }
+        }
+        
+        return false;
+      })
       .sort((a, b) => {
         const key = sortConfig.key;
         const direction = sortConfig.direction === 'ascending' ? 1 : -1;
@@ -358,27 +387,6 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
     else openModal('editar-transacao', { transacao: t });
   };
   
-  const handleConfirmDelete = (t: TransacaoBanco) => {
-    const hasRecurrence = !!t.recorrencia_id;
-    const recurrenceButtons = hasRecurrence ? [{
-      label: 'Excluir todas',
-      style: 'danger' as const,
-      onClick: () => {
-        const ids = transacoes.filter(x => x.recorrencia_id === t.recorrencia_id).map(x => x.id);
-        deleteTransacoes(ids);
-        setConfirmation(null);
-      }
-    }] : [];
-    setConfirmation({
-      title: 'Excluir transação?',
-      message: hasRecurrence ? 'Esta transação é recorrente. Deseja excluir apenas esta ou todas as ocorrências?' : 'Esta ação removerá a transação selecionada. Esta ação não pode ser desfeita.',
-      buttons: [
-        { label: 'Cancelar', style: 'secondary', onClick: () => setConfirmation(null) },
-        { label: 'Excluir apenas esta', style: 'danger', onClick: () => { deleteTransacao(t.id); setConfirmation(null); } },
-        ...recurrenceButtons,
-      ]
-    });
-  };
 
   const handleConfirmRealizacao = (t: TransacaoBanco) => {
     setConfirmation({
@@ -407,7 +415,25 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
     const isTransfer = t.tipo === TipoCategoria.Transferencia && !t.meta_pagamento && !t.meta_saldo_inicial;
     const pair = isTransfer ? transacoes.find(p => p.id === t.transferencia_par_id) : null;
     const isDebit = isTransfer && pair && t.id < pair.id;
-    const transferAccountName = isTransfer && pair ? contas.find(c => c.id === (isDebit ? pair.conta_id : pair?.conta_id))?.nome : '';
+    // Para transferências, determina qual conta mostrar baseado na visualização atual
+    const transferAccountName = isTransfer && pair ? (() => {
+      if (selectedView === 'all') {
+        // Na visualização "todas", mostra: origem -> destino
+        const origemId = isDebit ? t.conta_id : pair.conta_id;
+        const destinoId = isDebit ? pair.conta_id : t.conta_id;
+        return `${contas.find(c => c.id === origemId)?.nome} → ${contas.find(c => c.id === destinoId)?.nome}`;
+      } else {
+        // Na visualização de conta específica
+        if (t.conta_id === selectedView) {
+          // Esta transação pertence à conta selecionada - mostra a outra conta
+          return `→ ${contas.find(c => c.id === pair.conta_id)?.nome || ''}`;
+        } else {
+          // Esta transação NÃO pertence à conta selecionada, mas aparece porque é transferência recebida
+          // Mostra de onde veio
+          return `${contas.find(c => c.id === t.conta_id)?.nome || ''} →`;
+        }
+      }
+    })() : '';
     const valorColor = t.tipo === TipoCategoria.Entrada ? 'text-green-500 dark:text-green-400' : (t.tipo === TipoCategoria.Saida || t.meta_pagamento) ? 'text-red-500 dark:text-red-400' : t.tipo === TipoCategoria.Investimento ? 'text-blue-500 dark:text-blue-400' : 'text-yellow-500 dark:text-yellow-400';
 
     if(isMobile) {
@@ -418,7 +444,7 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
                     <div className="flex justify-between items-start">
                         <div className="flex-1">
                             <div className="flex items-center space-x-2">
-                                {isTransfer && <span title={`Transferência ${isDebit ? 'para' : 'de'} ${transferAccountName}`}><ArrowRightLeft size={14} className="text-yellow-500 dark:text-yellow-400 flex-shrink-0" /></span>}
+                                {isTransfer && <span title={`Transferência: ${transferAccountName}`}><ArrowRightLeft size={14} className="text-yellow-500 dark:text-yellow-400 flex-shrink-0" /></span>}
                                 <span className="font-semibold text-gray-800 dark:text-white">{t.descricao}</span>
                             </div>
                              <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400 mt-1">{categoria && getCategoryIcon(categoria.tipo)}<span>{categoria?.nome || 'N/A'}</span></div>
@@ -440,7 +466,7 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
     return (
         <tr key={t.id} className={`border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50`} style={{ borderLeft: `4px solid ${conta?.cor || 'transparent'}` }}>
             <td className="p-3 whitespace-nowrap text-gray-700 dark:text-gray-300">{formatDate(t.data)}</td>
-            <td className="p-3"><div className="flex items-center space-x-2 text-gray-800 dark:text-white">{isTransfer && <span title={`Transferência ${isDebit ? 'para' : 'de'} ${transferAccountName}`}><ArrowRightLeft size={14} className="text-yellow-500 dark:text-yellow-400 flex-shrink-0" /></span>}<span>{t.descricao}</span></div></td>
+            <td className="p-3"><div className="flex items-center space-x-2 text-gray-800 dark:text-white">{isTransfer && <span title={`Transferência: ${transferAccountName}`}><ArrowRightLeft size={14} className="text-yellow-500 dark:text-yellow-400 flex-shrink-0" /></span>}<span>{t.descricao}</span></div></td>
             <td className="p-3 flex items-center space-x-2 text-gray-700 dark:text-gray-300">{categoria && getCategoryIcon(categoria.tipo)}<span>{categoria?.nome || 'N/A'}</span></td>
             <td className={`p-3 text-right font-semibold ${valorColor}`}>{formatCurrency(t.valor)}</td>
             <td className="p-3 text-center flex justify-center space-x-3">
@@ -600,7 +626,7 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
                     {tx && (
                       <div className={`absolute inset-y-0 right-0 flex items-center space-x-2 pr-4 sm:hidden transition-transform ${swipedItemId === item.id ? 'translate-x-0' : 'translate-x-full'}`} style={{ zIndex: 10 }}>
                         <button onClick={(e) => { e.stopPropagation(); handleEditClick(tx); }} className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-md">Editar</button>
-                        <button onClick={(e) => { e.stopPropagation(); handleConfirmDelete(tx); }} className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-3 py-1.5 rounded-md">Excluir</button>
+                        <button onClick={(e) => { e.stopPropagation(); deleteTransacao(tx.id); }} className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-3 py-1.5 rounded-md">Excluir</button>
                       </div>
                     )}
 
@@ -654,12 +680,12 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
                               <EllipsisVertical className="size-5 opacity-70" />
                             </button>
                             {openMenuId === item.id && (
-                              <div className="absolute right-0 z-50 -translate-y-1 mt-2 w-40 rounded-md border border-slate-700/60 bg-slate-800 p-1 shadow-lg" style={{ zIndex: 20 }}>
-                                <button className="flex w-full items-center gap-2 rounded px-2 py-1.5 hover:bg-slate-700/60" onClick={(e) => { e.stopPropagation(); handleEditClick(tx); setOpenMenuId(null); }}>
+                              <div className="absolute right-0 z-50 -translate-y-1 mt-2 w-40 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-1 shadow-lg" style={{ zIndex: 20 }}>
+                                <button className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={(e) => { e.stopPropagation(); handleEditClick(tx); setOpenMenuId(null); }}>
                                   <Pencil className="size-4" /> Editar
                                 </button>
-                                <div className="my-1 h-px bg-slate-700/60" />
-                                <button className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-rose-400 hover:bg-rose-500/10" onClick={(e) => { e.stopPropagation(); handleConfirmDelete(tx); setOpenMenuId(null); }}>
+                                <div className="my-1 h-px bg-gray-200 dark:bg-gray-700" />
+                                <button className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10" onClick={(e) => { e.stopPropagation(); deleteTransacao(tx.id); setOpenMenuId(null); }}>
                                   <Trash2 className="size-4" /> Excluir
                                 </button>
                               </div>
