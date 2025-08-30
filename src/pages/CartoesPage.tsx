@@ -236,12 +236,34 @@ const CartoesPage: React.FC<CartoesPageProps> = (props) => {
   
   const FaturaCard = ({ title, fatura, faturaKey }: { title: string, fatura: FaturaInfo, faturaKey: string }) => {
     const isExpanded = !!expandedFaturas[faturaKey];
+    
+    // Função para formatar a data da fatura
+    const formatarDataFatura = () => {
+      if (!fatura.competencia) return '';
+      
+      const [year, month] = fatura.competencia.split('-').map(Number);
+      
+      // Se for "Todos os Cartões" ou não há cartão selecionado, mostra só MM/AAAA
+      if (selectedView === 'all' || !selectedCartao) {
+        return formatDate(fatura.competencia + "-01").substring(3); // MM/AAAA
+      }
+      
+      // Para cartão específico, mostra data completa DD/MM/AAAA
+      const diaVencimento = selectedCartao.dia_vencimento;
+      const dataVencimento = new Date(year, month - 1, diaVencimento);
+      
+      // Formata como DD/MM/AAAA
+      const dia = String(diaVencimento).padStart(2, '0');
+      const mes = String(month).padStart(2, '0');
+      return `${dia}/${mes}/${year}`;
+    };
+    
     return (
         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm dark:shadow-none">
             <div className="flex justify-between items-center">
                 <div>
                     <div className="flex items-center space-x-2">
-                      <p className="text-gray-500 dark:text-gray-400">{title} ({fatura.competencia ? formatDate(fatura.competencia + "-01").substring(3) : ''})</p>
+                      <p className="text-gray-500 dark:text-gray-400">{title} ({formatarDataFatura()})</p>
                       {fatura.status === 'Paga' && <span className="text-xs font-bold text-white bg-green-500 px-2 py-0.5 rounded-full">Paga</span>}
                       {fatura.status === 'Parcial' && <span className="text-xs font-bold text-white bg-yellow-500 px-2 py-0.5 rounded-full">Parcial</span>}
                     </div>
