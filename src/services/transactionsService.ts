@@ -208,17 +208,52 @@ export const transactionsService = {
     });
   },
 
-  createPayment: (cartaoId: string, contaId: string, valor: number, data: string, competencia: string, cartaoNome: string, categorias: Categoria[]): TransacaoBanco => {
-    // Busca a categoria "Pagamento de Cartão" dinamicamente
-    let pagamentoCategoria = categorias.find(c => c.sistema && c.nome === 'Pagamento de Cartão' && c.tipo === TipoCategoria.Saida);
+  createPayment: (cartaoId: string, contaId: string, valor: number, data: string, competencia: string, cartaoNome: string, categorias: Categoria[], parcelas: any[], compras: any[]): TransacaoBanco => {
+    // Busca as parcelas da competência e suas categorias
+    const parcelasDaCompetencia = parcelas.filter(p => {
+      const compra = compras.find(c => c.id === p.compra_id);
+      return compra && compra.cartao_id === cartaoId && p.competencia_fatura === competencia;
+    });
+
+    // Se há apenas uma categoria única entre todas as compras, usa ela
+    const categoriasUnicas = [...new Set(
+      parcelasDaCompetencia.map(p => {
+        const compra = compras.find(c => c.id === p.compra_id);
+        return compra?.categoria_id;
+      }).filter(Boolean)
+    )];
+
+    let categoriaId: string;
     
-    // Se não encontrou, usa qualquer categoria de saída
-    if (!pagamentoCategoria) {
-      pagamentoCategoria = categorias.find(c => c.tipo === TipoCategoria.Saida);
+    if (categoriasUnicas.length === 1) {
+      // Se todas as compras são da mesma categoria, usa essa categoria
+      categoriaId = categoriasUnicas[0]!;
+    } else {
+      // Se há múltiplas categorias ou nenhuma, usa categoria "Pagamento de Cartão"
+      let pagamentoCategoria = categorias.find(c => c.sistema && c.nome === 'Pagamento de Cartão' && c.tipo === TipoCategoria.Saida);
+      
+      // Se não encontrou, usa qualquer categoria de saída
+      if (!pagamentoCategoria) {
+        pagamentoCategoria = categorias.find(c => c.tipo === TipoCategoria.Saida);
+      }
+      
+      categoriaId = pagamentoCategoria?.id || 'default-saida-categoria';
     }
-    
-    // Fallback: se ainda não tem categoria, cria um UUID genérico (não deveria acontecer)
-    const categoriaId = pagamentoCategoria?.id || 'default-saida-categoria';
+
+    // As parcelas já foram filtradas acima
+
+    // Gera lista única de descrições das compras
+    const descricoesCompras = [...new Set(
+      parcelasDaCompetencia.map(p => {
+        const compra = compras.find(c => c.id === p.compra_id);
+        return compra?.descricao;
+      }).filter(Boolean)
+    )];
+
+    // Monta descrição com as compras pagas
+    const descricaoCompleta = descricoesCompras.length > 0 
+      ? `Pagamento Fatura ${cartaoNome} - ${descricoesCompras.join(', ')}`
+      : `Pagamento Fatura ${cartaoNome}`;
 
     return {
       id: crypto.randomUUID(),
@@ -227,7 +262,7 @@ export const transactionsService = {
       valor,
       categoria_id: categoriaId,
       tipo: TipoCategoria.Saida,
-      descricao: `Pagamento Fatura ${cartaoNome}`,
+      descricao: descricaoCompleta,
       previsto: false,
       realizado: true,
       meta_pagamento: true,
@@ -270,5 +305,138 @@ export const transactionsService = {
     // Esta função foi desabilitada para evitar conflitos com o save em lote
     // A persistência será feita através do useEffect automático
     return;
+  },
+
+  // Processar estorno de pagamento de fatura
+  processarEstorno: async (dadosEstorno: {
+    transacaoPagamentoId: string;
+    cartaoId: string;
+    contaId: string;
+    valor: number;
+    motivo: string;
+    observacoes?: string;
+    competencia: string;
+    cartaoNome: string;
+    categoriaId?: string;
+  }): Promise<{ transacaoEstorno: TransacaoBanco; transacaoAtualizada: any }> => {
+    console.log('🚀 processarEstorno chamado com:', dadosEstorno);
+    
+    try {
+      const { data: auth } = await supabase.auth.getSession();
+      const userId = auth.session?.user?.id;
+      console.log('🔐 Usuário autenticado:', userId ? 'Sim' : 'Não');
+      if (!userId) throw new Error('Usuário não autenticado');
+
+      // 1. Criar transação de estorno (entrada)
+      const transacaoEstorno: TransacaoBanco = {
+        id: crypto.randomUUID(),
+        conta_id: dadosEstorno.contaId,
+        data: new Date().toISOString().split('T')[0],
+        valor: dadosEstorno.valor, // Valor positivo (entrada)
+        categoria_id: dadosEstorno.categoriaId,
+        tipo: TipoCategoria.Entrada,
+        descricao: `[ESTORNO] Pagamento Fatura ${dadosEstorno.cartaoNome} - ${dadosEstorno.motivo}${dadosEstorno.observacoes ? ` (${dadosEstorno.observacoes})` : ''}`,
+        previsto: false,
+        realizado: true,
+        meta_pagamento: false,
+        cartao_id: dadosEstorno.cartaoId,
+        competencia_fatura: dadosEstorno.competencia,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      // 2. Inserir transação de estorno no banco
+      console.log('💾 Criando transação de estorno:', {
+        id: transacaoEstorno.id,
+        conta_id: transacaoEstorno.conta_id,
+        valor: transacaoEstorno.valor,
+        categoria_id: transacaoEstorno.categoria_id,
+        descricao: transacaoEstorno.descricao
+      });
+      
+      const { data: estornoInsertData, error: estornoError } = await supabase
+        .from('transacoes_banco')
+        .insert([{
+          id: transacaoEstorno.id,
+          conta_id: transacaoEstorno.conta_id,
+          data: transacaoEstorno.data,
+          valor: transacaoEstorno.valor,
+          categoria_id: transacaoEstorno.categoria_id,
+          tipo: transacaoEstorno.tipo,
+          descricao: transacaoEstorno.descricao,
+          transferencia_par_id: null,
+          previsto: transacaoEstorno.previsto,
+          realizado: transacaoEstorno.realizado,
+          cartao_id: transacaoEstorno.cartao_id,
+          competencia_fatura: transacaoEstorno.competencia_fatura,
+          meta_pagamento: transacaoEstorno.meta_pagamento,
+          meta_saldo_inicial: false,
+          recorrencia: null,
+          recorrencia_id: null,
+          objetivo_id: null,
+          created_at: transacaoEstorno.createdAt,
+          updated_at: transacaoEstorno.updatedAt
+        }])
+        .select();
+        
+      console.log('✅ Resultado insert estorno:', { data: estornoInsertData, error: estornoError });
+
+      if (estornoError) throw estornoError;
+
+      // 3. Atualizar transação original - por enquanto só updated_at até migração ser executada
+      console.log('🔄 Atualizando transação original:', dadosEstorno.transacaoPagamentoId);
+      
+      const { data: updateData, error: updateError } = await supabase
+        .from('transacoes_banco')
+        .update({
+          updated_at: new Date().toISOString(),
+          // Campos de estorno serão adicionados após migração SQL
+          // status_pagamento: 'estornado',
+          // motivo_estorno: dadosEstorno.motivo,
+          // data_estorno: new Date().toISOString(),
+          // estornado_por: userId
+        })
+        .eq('id', dadosEstorno.transacaoPagamentoId)
+        .select();
+        
+      console.log('✅ Resultado update original:', { data: updateData, error: updateError });
+
+      if (updateError) throw updateError;
+
+      const resultado = { transacaoEstorno, transacaoAtualizada: { id: dadosEstorno.transacaoPagamentoId } };
+      console.log('🎉 Estorno processado com sucesso:', resultado);
+      return resultado;
+
+    } catch (error) {
+      console.error('❌ Erro ao processar estorno:', error);
+      throw new Error('Falha ao processar estorno: ' + (error as any)?.message || 'Erro desconhecido');
+    }
+  },
+
+  // Cancelar pagamento (últimas 24h)
+  cancelarPagamento: async (transacaoPagamentoId: string): Promise<void> => {
+    try {
+      const { data: auth } = await supabase.auth.getSession();
+      const userId = auth.session?.user?.id;
+      if (!userId) throw new Error('Usuário não autenticado');
+
+      // Atualizar - por enquanto só updated_at até migração ser executada
+      const { error } = await supabase
+        .from('transacoes_banco')
+        .update({
+          updated_at: new Date().toISOString()
+          // Campos de cancelamento serão adicionados após migração SQL
+          // status_pagamento: 'cancelado',
+          // data_estorno: new Date().toISOString(),
+          // estornado_por: userId
+        })
+        .eq('id', transacaoPagamentoId);
+
+      if (error) throw error;
+
+    } catch (error) {
+      console.error('Erro ao cancelar pagamento:', error);
+      throw new Error('Falha ao cancelar pagamento');
+    }
   }
 };

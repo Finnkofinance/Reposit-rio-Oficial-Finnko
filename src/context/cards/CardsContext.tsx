@@ -15,6 +15,8 @@ interface CardsContextType {
   updateCompraCartao: (compra: CompraCartao & { parcelas: number }) => boolean;
   deleteCompraCartao: (id: string) => void;
   markParcelasAsPaid: (cartaoId: string, competencia: string) => void;
+  unmarkParcelasAsPaid: (cartaoId: string, competencia: string) => void;
+  fixParcelasPagasStatus: (cartaoId: string, competencia: string, valorPago: number) => void;
   bulkReplaceCompras: (compras: CompraCartao[]) => void;
   bulkReplaceParcelas: (parcelas: ParcelaCartao[]) => void;
   bulkReplaceCartoes: (cartoes: Cartao[]) => void;
@@ -180,6 +182,95 @@ export const CardsProvider: React.FC<CardsProviderProps> = ({ children }) => {
     });
   };
 
+  const unmarkParcelasAsPaid = (cartaoId: string, competencia: string) => {
+    console.log('🔄 Desmarcando parcelas como pagas:', { cartaoId, competencia });
+    
+    const parcelasToUpdate = parcelas.filter(p => {
+      const compra = compras.find(c => c.id === p.compra_id);
+      return compra?.cartao_id === cartaoId && p.competencia_fatura === competencia && p.paga;
+    });
+    
+    console.log('📦 Parcelas encontradas para desmarcar:', parcelasToUpdate.length);
+    
+    if (parcelasToUpdate.length === 0) return;
+    
+    // Atualiza localmente
+    setParcelas(prev => prev.map(p => {
+      const shouldUpdate = parcelasToUpdate.some(pu => pu.id === p.id);
+      return shouldUpdate ? { ...p, paga: false } : p;
+    }));
+    
+    // Persiste no banco
+    parcelasToUpdate.forEach(parcela => {
+      cardsService.unmarkInstallmentAsPaid(parcela.id).catch(err => {
+        console.error('Error unmarking installment as paid:', err);
+      });
+    });
+  };
+
+  const fixParcelasPagasStatus = (cartaoId: string, competencia: string, valorPago: number) => {
+    console.log('🔧 Corrigindo status das parcelas baseado no valor pago:', { cartaoId, competencia, valorPago });
+    
+    const parcelasDaCompetencia = parcelas.filter(p => {
+      const compra = compras.find(c => c.id === p.compra_id);
+      return compra?.cartao_id === cartaoId && p.competencia_fatura === competencia;
+    });
+    
+    if (parcelasDaCompetencia.length === 0) {
+      console.log('⚠️ Nenhuma parcela encontrada para esta competência');
+      return;
+    }
+    
+    const totalFatura = parcelasDaCompetencia.reduce((sum, p) => sum + p.valor_parcela, 0);
+    console.log('💰 Total da fatura:', totalFatura.toFixed(2), 'Valor pago:', valorPago.toFixed(2));
+    
+    // Determina se o pagamento é completo (com tolerância de 1 centavo)
+    const isCompleto = Math.abs(valorPago - totalFatura) <= 0.01 || valorPago > totalFatura;
+    
+    console.log('💯 Pagamento completo?', isCompleto, `(diferença: ${Math.abs(valorPago - totalFatura).toFixed(2)})`);
+    
+    // Lista parcelas que precisam ser atualizadas
+    const parcelasToUpdate = parcelasDaCompetencia.filter(p => {
+      const deveSer = isCompleto;
+      const atual = p.paga === true;
+      console.log(`📎 Parcela ${p.id}: atual=${atual}, deve ser=${deveSer}`);
+      return atual !== deveSer;
+    });
+    
+    console.log(`🔍 Parcelas que precisam atualizar: ${parcelasToUpdate.length} de ${parcelasDaCompetencia.length}`);
+    
+    if (parcelasToUpdate.length === 0) {
+      console.log('😅 Status das parcelas já está correto');
+      return;
+    }
+    
+    console.log(`🔄 Atualizando ${parcelasToUpdate.length} parcelas para paga=${isCompleto}`);
+    
+    // Atualiza localmente
+    setParcelas(prev => prev.map(p => {
+      const shouldUpdate = parcelasToUpdate.some(pu => pu.id === p.id);
+      if (shouldUpdate) {
+        console.log(`✅ Atualizando parcela local ${p.id} para paga=${isCompleto}`);
+      }
+      return shouldUpdate ? { ...p, paga: isCompleto } : p;
+    }));
+    
+    // Persiste no banco
+    parcelasToUpdate.forEach(parcela => {
+      const serviceCall = isCompleto 
+        ? cardsService.markInstallmentAsPaid(parcela.id)
+        : cardsService.unmarkInstallmentAsPaid(parcela.id);
+      
+      console.log(`💾 Persistindo parcela ${parcela.id} como paga=${isCompleto}`);
+      
+      serviceCall.catch(err => {
+        console.error(`❌ Erro ao atualizar parcela ${parcela.id}:`, err);
+      });
+    });
+    
+    console.log('🎉 Correção concluída!');
+  };
+
   return (
     <CardsContext.Provider value={{
       cartoes,
@@ -193,6 +284,8 @@ export const CardsProvider: React.FC<CardsProviderProps> = ({ children }) => {
       updateCompraCartao,
       deleteCompraCartao,
       markParcelasAsPaid,
+      unmarkParcelasAsPaid,
+      fixParcelasPagasStatus,
       bulkReplaceCompras,
       bulkReplaceParcelas,
       bulkReplaceCartoes

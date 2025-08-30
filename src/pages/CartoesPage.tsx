@@ -9,6 +9,7 @@ import { CORES_CARTAO } from '@/constants.tsx';
 import DatePeriodSelector from '@/components/DatePeriodSelector';
 import MobileSelector from '@/components/MobileSelector';
 import { ConfirmationModalData } from '@/components/ConfirmationModal';
+import PaymentUndoAction from '@/components/PaymentUndoAction';
 
 interface CartoesPageProps {
   cartoes: Cartao[];
@@ -22,6 +23,8 @@ interface CartoesPageProps {
   deleteCartao: (id: string) => void;
   deleteCompraCartao: (id: string) => void;
   pagarFatura: (cartaoId: string, contaId: string, valor: number, data: string, competencia: string) => void;
+  desfazerPagamento: (undoData: any) => Promise<void>;
+  fixParcelasPagasStatus?: (cartaoId: string, competencia: string, valorPago: number) => void;
   modalState: ModalState;
   openModal: (modal: string, data?: any) => void;
   closeModal: () => void;
@@ -43,6 +46,9 @@ interface FaturaInfo {
     total_pago: number;
     restante: number;
     status: FaturaStatus;
+    dataPagamento?: string;
+    valorPagamento?: number;
+    cartaoNome?: string;
 }
 
 const getTodayString = () => new Date().toISOString().split('T')[0];
@@ -50,7 +56,7 @@ const getTodayString = () => new Date().toISOString().split('T')[0];
 const CartoesPage: React.FC<CartoesPageProps> = (props) => {
   const {
     cartoes, contas, categorias, compras, parcelas, transacoes,
-    addCartao, updateCartao, deleteCartao, deleteCompraCartao, pagarFatura,
+    addCartao, updateCartao, deleteCartao, deleteCompraCartao, pagarFatura, desfazerPagamento, fixParcelasPagasStatus,
     modalState, openModal, closeModal, selectedView, setSelectedView, selectedMonth, onMonthChange,
     navigationState, clearNavigationState, setCurrentPage, setConfirmation
   } = props;
@@ -130,17 +136,60 @@ const CartoesPage: React.FC<CartoesPageProps> = (props) => {
         });
         const totalFatura = parcelasDaFatura.reduce((sum, p) => sum + p.valor_parcela, 0);
 
-        // Calcula total pago baseado no campo 'paga' das parcelas
-        const totalPago = parcelasDaFatura
-            .filter(p => p.paga === true)
-            .reduce((sum, p) => sum + p.valor_parcela, 0);
-
+        // Calcula total pago baseado nas transações de pagamento reais
+        const pagamentosTransacoes = transacoes.filter(t => 
+            t.meta_pagamento && 
+            cartoesIds.has(t.cartao_id || '') && 
+            t.competencia_fatura === competencia
+            // && t.status_pagamento !== 'estornado' (comentado - campo não existe ainda)
+            // && t.status_pagamento !== 'cancelado'
+        );
+        
+        const totalPago = pagamentosTransacoes.reduce((sum, t) => sum + t.valor, 0);
         const restante = totalFatura - totalPago;
+        
         let status: FaturaStatus = 'Aberta';
         if (totalFatura > 0 && restante <= 0.01) status = 'Paga';
         else if (totalPago > 0) status = 'Parcial';
 
-        return { parcelas: parcelasDaFatura, total: totalFatura, competencia, total_pago: totalPago, restante, status };
+        // Buscar informações de pagamento das transações
+        let dataPagamento: string | undefined;
+        let valorPagamento: number | undefined;
+        let cartaoNome: string | undefined;
+        
+        if (status === 'Paga' && cartoesParaCalcular.length === 1) {
+            const cartao = cartoesParaCalcular[0];
+            cartaoNome = cartao.apelido;
+            
+            // Buscar transação de pagamento mais recente para esta competência
+            // Nota: Filtros de status serão adicionados após migração SQL
+            const pagamentoTx = transacoes
+                .filter(t => 
+                    t.meta_pagamento && 
+                    t.cartao_id === cartao.id && 
+                    t.competencia_fatura === competencia
+                    // && t.status_pagamento !== 'estornado'
+                    // && t.status_pagamento !== 'cancelado'
+                )
+                .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())[0];
+            
+            if (pagamentoTx) {
+                dataPagamento = pagamentoTx.data;
+                valorPagamento = pagamentoTx.valor;
+            }
+        }
+
+        return { 
+            parcelas: parcelasDaFatura, 
+            total: totalFatura, 
+            competencia, 
+            total_pago: totalPago, 
+            restante, 
+            status,
+            dataPagamento,
+            valorPagamento,
+            cartaoNome
+        };
     };
 
     const cartoesVisiveis = selectedView === 'all' ? cartoes : cartoes.filter(c => c.id === selectedView);
@@ -172,7 +221,12 @@ const CartoesPage: React.FC<CartoesPageProps> = (props) => {
         }
         const contaPadrao = selectedCartao?.conta_id_padrao || contas.filter(c => c.ativo)[0]?.id || '';
         const valorAPagar = Math.max(0, faturas.atual.restante);
-        setPagamentoForm({ conta_id: contaPadrao, valor: String(valorAPagar * 100), data: getTodayString() });
+        // Só define o valor inicial se ainda não foi definido pelo usuário
+        setPagamentoForm(prev => ({
+            conta_id: contaPadrao,
+            valor: prev.valor || String(valorAPagar * 100), // Mantém o valor se já foi digitado
+            data: getTodayString()
+        }));
     }
   }, [isPagamentoModalOpen, faturas, selectedCartao, contas, closeModal]);
 
@@ -231,6 +285,15 @@ const CartoesPage: React.FC<CartoesPageProps> = (props) => {
     }
     openModal('pagar-fatura');
   };
+
+  const handleUndoPayment = async (undoData: any) => {
+    try {
+      await desfazerPagamento(undoData);
+    } catch (error) {
+      console.error('Erro ao desfazer pagamento:', error);
+      throw error;
+    }
+  };
   
   const FaturaCard = ({ title, fatura, faturaKey }: { title: string, fatura: FaturaInfo, faturaKey: string }) => {
     const isExpanded = !!expandedFaturas[faturaKey];
@@ -269,8 +332,23 @@ const CartoesPage: React.FC<CartoesPageProps> = (props) => {
                     {fatura.status === 'Parcial' && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Pago: {formatCurrency(fatura.total_pago)} • Restante: {formatCurrency(fatura.restante)}</p>}
                 </div>
                 <div className="flex items-center space-x-2">
-                    {title === 'Fatura Atual' && (
-                        <button onClick={handlePagarFaturaClick} disabled={fatura.status === 'Paga'} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg text-sm flex items-center space-x-2 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"> <DollarSign size={16}/><span>Pagar</span> </button>
+                    {title === 'Fatura Atual' && fatura.status !== 'Paga' && (
+                        <button onClick={handlePagarFaturaClick} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg text-sm flex items-center space-x-2 transition-colors"> <DollarSign size={16}/><span>Pagar</span> </button>
+                    )}
+                    {title === 'Fatura Atual' && fatura.status === 'Paga' && selectedView !== 'all' && (
+                        <PaymentUndoAction 
+                            fatura={{
+                                competencia: fatura.competencia,
+                                total: fatura.total,
+                                total_pago: fatura.total_pago,
+                                restante: fatura.restante,
+                                status: fatura.status,
+                                dataPagamento: fatura.dataPagamento,
+                                valorPagamento: fatura.valorPagamento,
+                                cartaoNome: fatura.cartaoNome
+                            }}
+                            onUndo={handleUndoPayment}
+                        />
                     )}
                     {fatura.parcelas.length > 0 && (
                         <button onClick={() => setExpandedFaturas(p => ({...p, [faturaKey]: !p[faturaKey]}))} className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white"> {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />} </button>
@@ -390,6 +468,7 @@ const CartoesPage: React.FC<CartoesPageProps> = (props) => {
               selectedMonth={selectedMonth} 
               onMonthChange={onMonthChange} 
             />
+            
             
              {/* Mobile Controls */}
              <div className="md:hidden">

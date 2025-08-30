@@ -316,6 +316,7 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
     data: string;
     titulo: string;
     subtitulo?: string;
+    descricao?: string; // Adicionar descrição para busca
     valor?: number;
     tipo: 'conta_criada' | 'transferencia' | 'entrada' | 'saida';
     contaCor?: string;
@@ -371,24 +372,27 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
 
     const items: BankHistoryItem[] = [];
 
-    // Conta criada (saldo inicial)
-    txs.filter(t => t.meta_saldo_inicial).forEach(t => {
-      const conta = contaMap.get(t.conta_id);
-      items.push({
-        id: `acc-${t.id}`,
-        data: t.data,
-        titulo: `Conta criada: ${conta?.nome || ''}`,
-        subtitulo: `Saldo inicial ${formatCurrency(t.valor)}`,
-        tipo: 'conta_criada',
-        contaCor: conta?.cor,
-        txId: t.id,
-      });
-    });
-
-    // Transferências - mostra perspectiva correta para cada conta
+    // Processar todas as transações em ordem cronológica (não agrupadas por tipo)
     const processedTransfers = new Set<string>();
-    txs.filter(t => t.transferencia_par_id && !t.meta_saldo_inicial && !t.meta_pagamento)
-      .forEach(t => {
+    
+    txs.forEach(t => {
+      const conta = contaMap.get(t.conta_id);
+      
+      // Conta criada (saldo inicial)
+      if (t.meta_saldo_inicial) {
+        items.push({
+          id: `acc-${t.id}`,
+          data: t.data,
+          titulo: `Conta criada: ${conta?.nome || ''}`,
+          subtitulo: `Saldo inicial ${formatCurrency(t.valor)}`,
+          descricao: t.descricao,
+          tipo: 'conta_criada',
+          contaCor: conta?.cor,
+          txId: t.id,
+        });
+      }
+      // Transferências
+      else if (t.transferencia_par_id && !t.meta_pagamento) {
         const par = transacoes.find(p => p.id === t.transferencia_par_id);
         if (!par) return;
         
@@ -429,46 +433,44 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
           data: t.data,
           titulo: titulo!,
           subtitulo: t.descricao || undefined,
+          descricao: t.descricao,
           valor: t.valor,
           tipo: 'transferencia',
           contaCor,
           txId: t.id,
         });
-      });
-
-    // Entradas
-    txs.filter(t => t.tipo === TipoCategoria.Entrada)
-      .forEach(t => {
-        const conta = contaMap.get(t.conta_id);
+      }
+      // Entradas
+      else if (t.tipo === TipoCategoria.Entrada) {
         items.push({
           id: `ent-${t.id}`,
           data: t.data,
           titulo: `Entrada em ${conta?.nome || ''}`,
           subtitulo: t.descricao,
+          descricao: t.descricao,
           valor: t.valor,
           tipo: 'entrada',
           contaCor: conta?.cor,
           txId: t.id,
         });
-      });
-
-    // Saídas (inclui pagamento de cartão como saída)
-    txs.filter(t => t.tipo === TipoCategoria.Saida || t.meta_pagamento)
-      .forEach(t => {
-        const conta = contaMap.get(t.conta_id);
+      }
+      // Saídas (inclui pagamento de cartão como saída)
+      else if (t.tipo === TipoCategoria.Saida || t.meta_pagamento) {
         items.push({
           id: `sai-${t.id}`,
           data: t.data,
           titulo: `Saída em ${conta?.nome || ''}`,
           subtitulo: t.descricao,
+          descricao: t.descricao,
           valor: t.valor,
           tipo: 'saida',
           contaCor: conta?.cor,
           txId: t.id,
         });
-      });
+      }
+    });
 
-    // Não reordena - mantém a ordem já aplicada pelos filtros em transacoesFiltradas
+    // Mantém a ordem cronológica das transações originais
     return items;
   }, [transacoesFiltradas, contas, transacoes]);
 
@@ -538,24 +540,31 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
     
     // 3) ORDENAR POR DATA + VALOR COMBINADOS
     filtered.sort((a, b) => {
-      // Primeiro: ordenação por data
+      // Primeiro: ordenação por data (usa createdAt para "mais recente", data para "oldest")
       let dateCompare = 0;
       if (filters.date.mode === 'oldest') {
+        // Para "oldest", usar data da transação (não data de criação)
         dateCompare = a.data.localeCompare(b.data); // antigas primeiro
       } else {
-        dateCompare = b.data.localeCompare(a.data); // recentes primeiro (padrão)
+        // Para "mais recente" (padrão), usar data de criação (createdAt)
+        const txA = transacoes.find(t => t.id === a.txId);
+        const txB = transacoes.find(t => t.id === b.txId);
+        const createdAtA = txA?.createdAt || a.data;
+        const createdAtB = txB?.createdAt || b.data;
+        dateCompare = createdAtB.localeCompare(createdAtA); // mais recentemente criadas primeiro
       }
       
       // Se datas diferentes, usa ordenação de data
       if (dateCompare !== 0) return dateCompare;
       
-      // Se mesma data: ordenação por valor
+      // Se mesma data: ordenação por valor (apenas se especificado)
       if (filters.valueOrder === 'higher') {
         return (b.valor || 0) - (a.valor || 0); // maior valor primeiro
       } else if (filters.valueOrder === 'lower') {
         return (a.valor || 0) - (b.valor || 0); // menor valor primeiro
       } else {
-        return (b.valor || 0) - (a.valor || 0); // padrão: maior valor primeiro
+        // Sem ordenação por valor: manter ordem natural/original
+        return 0;
       }
     });
     

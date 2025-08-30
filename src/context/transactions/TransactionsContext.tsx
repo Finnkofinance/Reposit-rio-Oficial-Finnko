@@ -14,7 +14,7 @@ interface TransactionsContextType {
   deleteTransacoes: (ids: string[]) => void;
   updateTransacoesCategoria: (ids: string[], newCategoryId: string, categoria: Categoria) => void;
   toggleTransactionRealizado: (id: string) => void;
-  addPayment: (cartaoId: string, contaId: string, valor: number, data: string, competencia: string, cartaoNome: string, categorias: Categoria[]) => void;
+  addPayment: (cartaoId: string, contaId: string, valor: number, data: string, competencia: string, cartaoNome: string, categorias: Categoria[], parcelas: any[], compras: any[]) => void;
   bulkAdd: (transactions: TransacaoBanco[]) => void;
   bulkReplace: (transactions: TransacaoBanco[]) => void;
 }
@@ -114,8 +114,8 @@ export const TransactionsProvider: React.FC<TransactionsProviderProps> = ({ chil
     ));
   };
 
-  const addPayment = (cartaoId: string, contaId: string, valor: number, data: string, competencia: string, cartaoNome: string, categorias: Categoria[]) => {
-    const payment = transactionsService.createPayment(cartaoId, contaId, valor, data, competencia, cartaoNome, categorias);
+  const addPayment = (cartaoId: string, contaId: string, valor: number, data: string, competencia: string, cartaoNome: string, categorias: Categoria[], parcelas: any[], compras: any[]) => {
+    const payment = transactionsService.createPayment(cartaoId, contaId, valor, data, competencia, cartaoNome, categorias, parcelas, compras);
     setTransacoes(prev => [...prev, payment]);
   };
 

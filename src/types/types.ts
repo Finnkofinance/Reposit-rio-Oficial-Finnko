@@ -72,6 +72,11 @@ export interface TransacaoBanco {
   recorrencia_id?: string | null; // To group recurring transactions
   // New field for investment goals
   objetivo_id?: string | null;
+  // New fields for payment status tracking
+  status_pagamento?: 'ativo' | 'estornado' | 'cancelado';
+  motivo_estorno?: string;
+  data_estorno?: string;
+  estornado_por?: string;
   createdAt?: string;
   updatedAt?: string;
 }
