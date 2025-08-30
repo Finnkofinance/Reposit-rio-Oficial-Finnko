@@ -20,7 +20,7 @@ export default function CartoesPageWrapper() {
     const cartao = cartoes.find(c => c.id === cartaoId);
     if (cartao) {
       // Cria a transação de pagamento
-      addPayment(cartaoId, contaId, valor, data, competencia, cartao.apelido);
+      addPayment(cartaoId, contaId, valor, data, competencia, cartao.apelido, categorias);
       // Marca as parcelas da competência como pagas
       markParcelasAsPaid(cartaoId, competencia);
     }

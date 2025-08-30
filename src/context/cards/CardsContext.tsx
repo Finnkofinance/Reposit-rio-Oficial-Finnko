@@ -53,25 +53,7 @@ export const CardsProvider: React.FC<CardsProviderProps> = ({ children }) => {
     (async () => { await cardsService.save(cartoes); })();
   }, [cartoes, initialLoaded]);
 
-  useEffect(() => {
-    if (compras.length >= 0) {
-      try {
-        window.localStorage.setItem('compras', JSON.stringify(compras));
-      } catch (error) {
-        console.error('Error saving compras:', error);
-      }
-    }
-  }, [compras]);
-
-  useEffect(() => {
-    if (parcelas.length >= 0) {
-      try {
-        window.localStorage.setItem('parcelas', JSON.stringify(parcelas));
-      } catch (error) {
-        console.error('Error saving parcelas:', error);
-      }
-    }
-  }, [parcelas]);
+  // Removido localStorage - sempre usar Supabase
 
   const addCartao = (cartaoData: Omit<Cartao, 'id' | 'createdAt' | 'updatedAt'>) => {
     const newCartao = cardsService.create(cartaoData);
@@ -100,7 +82,7 @@ export const CardsProvider: React.FC<CardsProviderProps> = ({ children }) => {
 
     (async () => {
       try {
-        // Se logado, persiste; senão, apenas local
+        // Sempre usar Supabase se logado
         if (user) {
           if (compraData.recorrencia) {
             const { compras: newCompras, parcelas: newParcelas } = await cardsService.createRecurringPurchasePersist(compraData, cartao);
@@ -111,17 +93,8 @@ export const CardsProvider: React.FC<CardsProviderProps> = ({ children }) => {
             setCompras(prev => [...prev, newCompra]);
             setParcelas(prev => [...prev, ...newParcelas]);
           }
-        } else {
-          if (compraData.recorrencia) {
-            const { compras: newCompras, parcelas: newParcelas } = cardsService.createRecurringPurchase(compraData, cartao);
-            setCompras(prev => [...prev, ...newCompras]);
-            setParcelas(prev => [...prev, ...newParcelas]);
-          } else {
-            const { compra: newCompra, parcelas: newParcelas } = cardsService.createPurchase(compraData, cartao);
-            setCompras(prev => [...prev, newCompra]);
-            setParcelas(prev => [...prev, ...newParcelas]);
-          }
         }
+        // Se não logado, não permite criação de compras
       } catch (e) {
         console.error('Erro ao criar compra:', e);
       }
@@ -131,11 +104,17 @@ export const CardsProvider: React.FC<CardsProviderProps> = ({ children }) => {
 
   const addRecurringCompraCartao = (compraData: Omit<CompraCartao, 'id' | 'createdAt' | 'updatedAt' | 'parcelas_total'>): boolean => {
     const cartao = cartoes.find(c => c.id === compraData.cartao_id);
-    if (!cartao) return false;
+    if (!cartao || !user) return false;
 
-    const { compras: newCompras, parcelas: newParcelas } = cardsService.createRecurringPurchase(compraData, cartao);
-    setCompras(prev => [...prev, ...newCompras]);
-    setParcelas(prev => [...prev, ...newParcelas]);
+    (async () => {
+      try {
+        const { compras: newCompras, parcelas: newParcelas } = await cardsService.createRecurringPurchasePersist(compraData, cartao);
+        setCompras(prev => [...prev, ...newCompras]);
+        setParcelas(prev => [...prev, ...newParcelas]);
+      } catch (e) {
+        console.error('Erro ao criar compra recorrente:', e);
+      }
+    })();
     return true;
   };
 
@@ -150,12 +129,8 @@ export const CardsProvider: React.FC<CardsProviderProps> = ({ children }) => {
           const parcelasToKeep = parcelas.filter(p => p.compra_id !== compra.id);
           setCompras(prev => prev.map(c => c.id === compra.id ? updatedCompra : c));
           setParcelas([...parcelasToKeep, ...newParcelas]);
-        } else {
-          const { updatedCompra, newParcelas } = cardsService.updatePurchase(compra, cartao, parcelas);
-          const parcelasToKeep = parcelas.filter(p => p.compra_id !== compra.id);
-          setCompras(prev => prev.map(c => c.id === compra.id ? updatedCompra : c));
-          setParcelas([...parcelasToKeep, ...newParcelas]);
         }
+        // Se não logado, não permite atualizações
       } catch (e) {
         console.error('Erro ao atualizar compra:', e);
       }

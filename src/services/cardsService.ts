@@ -425,7 +425,7 @@ export const cardsService = {
             .order('data_compra', { ascending: false }),
           supabase
             .from('parcelas_cartao')
-            .select('id, compra_id, n_parcela, valor_parcela, competencia_fatura')
+            .select('id, compra_id, n_parcela, valor_parcela, competencia_fatura, paga')
             .order('competencia_fatura', { ascending: true }),
         ]);
         if (cErr) throw cErr;
@@ -455,13 +455,8 @@ export const cardsService = {
         return { compras, parcelas };
       }
 
-      // LocalStorage fallback
-      const comprasItem = window.localStorage.getItem('compras');
-      const parcelasItem = window.localStorage.getItem('parcelas');
-      return {
-        compras: comprasItem ? JSON.parse(comprasItem) : [],
-        parcelas: parcelasItem ? JSON.parse(parcelasItem) : [],
-      };
+      // Se não logado, retorna arrays vazios
+      return { compras: [], parcelas: [] };
     } catch (error) {
       console.error('Error getting purchases:', error);
       return { compras: [], parcelas: [] };

@@ -208,13 +208,24 @@ export const transactionsService = {
     });
   },
 
-  createPayment: (cartaoId: string, contaId: string, valor: number, data: string, competencia: string, cartaoNome: string): TransacaoBanco => {
+  createPayment: (cartaoId: string, contaId: string, valor: number, data: string, competencia: string, cartaoNome: string, categorias: Categoria[]): TransacaoBanco => {
+    // Busca a categoria "Pagamento de Cartão" dinamicamente
+    let pagamentoCategoria = categorias.find(c => c.sistema && c.nome === 'Pagamento de Cartão' && c.tipo === TipoCategoria.Saida);
+    
+    // Se não encontrou, usa qualquer categoria de saída
+    if (!pagamentoCategoria) {
+      pagamentoCategoria = categorias.find(c => c.tipo === TipoCategoria.Saida);
+    }
+    
+    // Fallback: se ainda não tem categoria, cria um UUID genérico (não deveria acontecer)
+    const categoriaId = pagamentoCategoria?.id || 'default-saida-categoria';
+
     return {
       id: crypto.randomUUID(),
       conta_id: contaId,
       data,
       valor,
-      categoria_id: 't3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e72', // Pagamento de Cartão
+      categoria_id: categoriaId,
       tipo: TipoCategoria.Saida,
       descricao: `Pagamento Fatura ${cartaoNome}`,
       previsto: false,

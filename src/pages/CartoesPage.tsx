@@ -130,12 +130,10 @@ const CartoesPage: React.FC<CartoesPageProps> = (props) => {
         });
         const totalFatura = parcelasDaFatura.reduce((sum, p) => sum + p.valor_parcela, 0);
 
-        const pagamentosDaFatura = transacoes.filter(t => 
-            t.meta_pagamento &&
-            t.competencia_fatura === competencia &&
-            t.cartao_id && cartoesIds.has(t.cartao_id)
-        );
-        const totalPago = pagamentosDaFatura.reduce((sum, p) => sum + p.valor, 0);
+        // Calcula total pago baseado no campo 'paga' das parcelas
+        const totalPago = parcelasDaFatura
+            .filter(p => p.paga === true)
+            .reduce((sum, p) => sum + p.valor_parcela, 0);
 
         const restante = totalFatura - totalPago;
         let status: FaturaStatus = 'Aberta';
@@ -284,9 +282,18 @@ const CartoesPage: React.FC<CartoesPageProps> = (props) => {
                     {fatura.parcelas.map(p => {
                         const compra = compras.find(c => c.id === p.compra_id);
                         const isEstorno = compra?.estorno ?? false;
+                        const isPaga = p.paga === true;
                         return (
-                            <div key={p.id} className={`flex justify-between text-sm ${isEstorno ? 'text-green-500 dark:text-green-400' : 'text-gray-700 dark:text-gray-300'}`}>
-                                <span className="flex items-center space-x-2"> {isEstorno && <RefreshCcw size={12} />} <span>{compra?.descricao} {isEstorno ? '(Estorno)' : `(${p.n_parcela}/${compra?.parcelas_total})`}</span> </span>
+                            <div key={p.id} className={`flex justify-between text-sm ${
+                                isEstorno ? 'text-green-500 dark:text-green-400' : 
+                                isPaga ? 'text-gray-400 dark:text-gray-500 line-through' : 
+                                'text-gray-700 dark:text-gray-300'
+                            }`}>
+                                <span className="flex items-center space-x-2"> 
+                                    {isEstorno && <RefreshCcw size={12} />} 
+                                    {isPaga && <span className="text-xs font-bold text-white bg-green-500 px-1.5 py-0.5 rounded-full mr-1">Paga</span>}
+                                    <span>{compra?.descricao} {isEstorno ? '(Estorno)' : `(${p.n_parcela}/${compra?.parcelas_total})`}</span> 
+                                </span>
                                 <span className="font-medium">{formatCurrency(p.valor_parcela)}</span>
                             </div>
                         )

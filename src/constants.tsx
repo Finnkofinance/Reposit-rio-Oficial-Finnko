@@ -39,7 +39,7 @@ export const CATEGORIAS_PADRAO: Categoria[] = [
   // Transferência (sistema)
   { "id": "t3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e70", "nome": "Transferência", "tipo": TipoCategoria.Transferencia, "sistema": true },
   { "id": "t3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e71", "nome": "Saldo Inicial", "tipo": TipoCategoria.Transferencia, "sistema": true },
-  { "id": "t3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e72", "nome": "Pagamento de Cartão", "tipo": TipoCategoria.Transferencia, "sistema": true }
+  { "id": "t3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e72", "nome": "Pagamento de Cartão", "tipo": TipoCategoria.Saida, "sistema": true }
 ];
 
 export const NAV_ITEMS: { id: Page; label: string; icon: React.ReactElement }[] = [
