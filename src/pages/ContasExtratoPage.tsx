@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Plus, Pencil, Trash2, ArrowRightLeft, EllipsisVertical, ChevronDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, ArrowRightLeft, EllipsisVertical, ChevronDown, Search, X } from 'lucide-react';
 
 import Modal from '@/components/Modal';
 import CurrencyInput from '@/components/CurrencyInput';
@@ -12,8 +12,99 @@ import { CORES_CARTAO, CORES_BANCO } from '@/constants.tsx';
 import { formatCurrency, calculateSaldo } from '@/utils/format';
 import MobileSelector from '@/components/MobileSelector';
 import { useAppContext } from '@/context/AppContext';
+import { parseBrDate, compareIsoDates, isoToBrDate, brToIsoDate } from '@/utils/dateBr';
 
 const getTodayString = () => new Date().toISOString().split('T')[0];
+
+// Tipos para filtros
+type DateMode = 'recent' | 'oldest' | 'period';
+type ValueOrder = 'higher' | 'lower';
+type TipoTransacao = 'entrada' | 'saida' | 'investimento' | 'transferencia';
+
+interface FiltersState {
+  date: {
+    mode: DateMode;
+    from?: string; // "YYYY-MM-DD" (ISO format interno)
+    to?: string;   // "YYYY-MM-DD" (ISO format interno)
+  };
+  valueOrder?: ValueOrder;              // undefined = não ordenar por valor
+  tipos: Record<TipoTransacao, boolean>; // { entrada: true/false, ... }
+  showTiposDropdown?: boolean;          // controla visibilidade do dropdown
+}
+
+// Componente auxiliar de validação
+function PeriodeValidationHint({ from, to }: { from?: string; to?: string }) {
+  // from e to já estão no formato ISO (YYYY-MM-DD)
+  if (from && to && compareIsoDates(from, to) === 1) {
+    return <p className="mt-2 text-sm text-red-400 dark:text-red-300">A data inicial não pode ser maior que a final.</p>;
+  }
+  return null;
+}
+
+// Converte TipoCategoria para TipoTransacao local
+function mapTipoCategoriaToTipoTransacao(t: TransacaoBanco): TipoTransacao | null {
+  switch (t.tipo) {
+    case TipoCategoria.Entrada: return 'entrada';
+    case TipoCategoria.Saida: return 'saida';  
+    case TipoCategoria.Investimento: return 'investimento';
+    case TipoCategoria.Transferencia: return 'transferencia';
+    default: return null;
+  }
+}
+
+function applyExtratoFilters(
+  list: TransacaoBanco[],
+  filters: FiltersState
+): TransacaoBanco[] {
+  let out = [...list];
+
+  if (filters.date.mode === 'period') {
+    const fromIso = filters.date.from;
+    const toIso = filters.date.to;
+    out = out.filter((t) => {
+      const d = t.data;
+      if (fromIso && d < fromIso) return false;
+      if (toIso && d > toIso) return false;
+      return true;
+    });
+  }
+
+  const tiposMarcados = Object.entries(filters.tipos)
+    .filter(([, v]) => v)
+    .map(([k]) => k as TipoTransacao);
+
+  if (tiposMarcados.length > 0) {
+    const setTipos = new Set(tiposMarcados);
+    out = out.filter((t) => {
+      const tipo = mapTipoCategoriaToTipoTransacao(t);
+      return tipo ? setTipos.has(tipo) : false;
+    });
+  }
+
+  if (filters.valueOrder === 'higher') {
+    out.sort((a, b) => {
+      if (a.data !== b.data) return b.data.localeCompare(a.data);
+      return b.valor - a.valor;
+    });
+  } else if (filters.valueOrder === 'lower') {
+    out.sort((a, b) => {
+      if (a.data !== b.data) return b.data.localeCompare(a.data);
+      return a.valor - b.valor;
+    });
+  } else if (filters.date.mode === 'oldest') {
+    out.sort((a, b) => {
+      if (a.data !== b.data) return a.data.localeCompare(b.data);
+      return b.valor - a.valor;
+    });
+  } else {
+    out.sort((a, b) => {
+      if (a.data !== b.data) return b.data.localeCompare(a.data);
+      return b.valor - a.valor;
+    });
+  }
+
+  return out;
+}
 
 function getBankColorFromName(name: string): string | null {
     if (!name) return null;
@@ -31,6 +122,44 @@ const isDebitTransfer = (t: TransacaoBanco, allTrans: TransacaoBanco[]): boolean
     const pair = allTrans.find(p => p.id === t.transferencia_par_id);
     return !!pair && t.id < pair.id;
 };
+
+/** 
+ * Seleção robusta para uma conta específica: devolve SEMPRE a metade que pertence à conta.
+ * Detecta transferência apenas pela presença de transferencia_par_id (mais confiável).
+ */
+function selectExtratoByContaNormalized(
+  all: TransacaoBanco[],
+  contaId: string
+): TransacaoBanco[] {
+  const byId = new Map(all.map(t => [t.id, t]));
+  const used = new Set<string>();
+  const result: TransacaoBanco[] = [];
+
+  for (const t of all) {
+    // 1) Já pertence à conta → pega t
+    if (t.conta_id === contaId) {
+      if (!used.has(t.id)) {
+        result.push(t);
+        used.add(t.id);
+        if (t.transferencia_par_id) used.add(t.transferencia_par_id);
+      }
+      continue;
+    }
+
+    // 2) Não pertence à conta, mas é transferência cujo PAR pertence à conta → pega o PAR
+    if (t.transferencia_par_id) {
+      const par = byId.get(t.transferencia_par_id);
+      if (par?.conta_id === contaId && !used.has(par.id)) {
+        result.push(par);
+        used.add(par.id);
+        used.add(t.id);
+      }
+    }
+  }
+
+  // Ordenar por data (ajuste se necessário)
+  return result.sort((a, b) => a.data.localeCompare(b.data));
+}
 
 interface ContasExtratoPageProps {
   contas: ContaBancaria[];
@@ -72,7 +201,36 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const historyHeaderRef = React.useRef<HTMLHeadingElement | null>(null);
   const toggleBtnRef = React.useRef<HTMLButtonElement | null>(null);
+  
+  // Estado dos filtros
+  const [filters, setFilters] = useState<FiltersState>({
+    date: { mode: 'recent' },
+    valueOrder: undefined,
+    tipos: { entrada: false, saida: false, investimento: false, transferencia: false },
+    showTiposDropdown: false
+  });
+
+  const [searchQuery, setSearchQuery] = useState('');
+  
   // recursos de edição em massa removidos
+
+  // Fechar dropdown quando clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (filters.showTiposDropdown && !target.closest('.tipos-dropdown')) {
+        setFilters(f => ({ ...f, showTiposDropdown: false }));
+      }
+    };
+
+    if (filters.showTiposDropdown) {
+      // Pequeno delay para evitar fechar imediatamente após abrir
+      setTimeout(() => {
+        document.addEventListener('click', handleClickOutside);
+      }, 10);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [filters.showTiposDropdown]);
 
   // Form states
   const [contaForm, setContaForm] = useState({ nome: '', saldo_inicial: '', data_inicial: getTodayString(), ativo: true, cor: CORES_CARTAO[0].value });
@@ -164,16 +322,52 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
     txId?: string;
   };
 
-  const bankHistory = useMemo<BankHistoryItem[]>(() => {
+
+  const handleToggleHistory = () => {
+    if (isExpanded) {
+      setIsExpanded(false);
+      // garantir foco e rolagem ao cabeçalho
+      setTimeout(() => {
+        toggleBtnRef.current?.focus();
+        historyHeaderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 0);
+    } else {
+      setIsExpanded(true);
+    }
+  };
+
+  const transacoesFiltradas = useMemo(() => {
     const [year, month] = selectedMonth.split('-').map(Number);
     const startDate = `${selectedMonth}-01`;
     const endDate = new Date(year, month, 0).toISOString().split('T')[0];
     const contasVisiveisIds = selectedView === 'all' ? new Set(contas.map(c => c.id)) : new Set([selectedView]);
+
+    // IMPORTANTE: Use a lista COMPLETA (não pré-filtrada) para conta específica
+    const allTransacoes = transacoes; // garante que é a lista completa do contexto
+
+    let extratoBase: TransacaoBanco[];
+    
+    if (selectedView === 'all') {
+      // Para "todas as contas", mantém comportamento atual
+      extratoBase = allTransacoes.filter(t => 
+        t.data >= startDate && t.data <= endDate && contasVisiveisIds.has(t.conta_id)
+      );
+    } else {
+      // Para conta específica: usa seleção NORMALIZADA baseada na lista completa
+      // Depois filtra por período do mês selecionado
+      const extratoNormalizado = selectExtratoByContaNormalized(allTransacoes, selectedView);
+      extratoBase = extratoNormalizado.filter(t => t.data >= startDate && t.data <= endDate);
+    }
+
+    // Retorna a lista base sem filtros - os filtros são aplicados diretamente no histórico
+    return extratoBase;
+  }, [transacoes, selectedMonth, selectedView, contas, filters]);
+
+  const bankHistory = useMemo<BankHistoryItem[]>(() => {
     const contaMap = new Map<string, ContaBancaria>(contas.map(c => [c.id, c]));
 
-    const txs = transacoes
-      .filter(t => t.data >= startDate && t.data <= endDate)
-      .filter(t => contasVisiveisIds.has(t.conta_id));
+    // Use as transações já filtradas pelos filtros avançados
+    const txs = transacoesFiltradas;
 
     const items: BankHistoryItem[] = [];
 
@@ -191,26 +385,55 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
       });
     });
 
-    // Transferências (agregar par)
-    txs.filter(t => t.tipo === TipoCategoria.Transferencia && !t.meta_saldo_inicial && !t.meta_pagamento)
+    // Transferências - mostra perspectiva correta para cada conta
+    const processedTransfers = new Set<string>();
+    txs.filter(t => t.transferencia_par_id && !t.meta_saldo_inicial && !t.meta_pagamento)
       .forEach(t => {
         const par = transacoes.find(p => p.id === t.transferencia_par_id);
         if (!par) return;
-        // Mostra apenas uma vez, a perna de débito
-        if (t.id < par.id) {
-          const origem: string = contaMap.get(t.conta_id)?.nome ?? '';
-          const destino: string = contaMap.get(par.conta_id)?.nome ?? '';
-          items.push({
-            id: `trf-${t.id}`,
-            data: t.data,
-            titulo: `Transferência: ${origem} → ${destino}`,
-            subtitulo: undefined,
-            valor: t.valor,
-            tipo: 'transferencia',
-            contaCor: contaMap.get(t.conta_id)?.cor,
-            txId: t.id,
-          });
+        
+        // Evita duplicatas usando o menor ID como chave única
+        const transferKey = t.id < par.id ? t.id : par.id;
+        if (processedTransfers.has(transferKey)) return;
+        processedTransfers.add(transferKey);
+
+        // Determina origem e destino baseado nos IDs ordenados
+        const [debitTx, creditTx] = t.id < par.id ? [t, par] : [par, t];
+        const origem = contaMap.get(debitTx.conta_id)?.nome ?? '';
+        const destino = contaMap.get(creditTx.conta_id)?.nome ?? '';
+
+        let titulo: string;
+        let contaCor: string | undefined;
+
+        if (selectedView === 'all') {
+          // Para "todas as contas", mostra formato padrão
+          titulo = `Transferência: ${origem} → ${destino}`;
+          contaCor = contaMap.get(debitTx.conta_id)?.cor;
+        } else {
+          // Para conta específica, mostra perspectiva da conta selecionada
+          if (t.conta_id === selectedView) {
+            // Esta é a transação da conta selecionada
+            if (debitTx.conta_id === selectedView) {
+              // Conta selecionada está enviando
+              titulo = `Transferência para ${destino}`;
+            } else {
+              // Conta selecionada está recebendo
+              titulo = `Transferência de ${origem}`;
+            }
+            contaCor = contaMap.get(selectedView)?.cor;
+          }
         }
+
+        items.push({
+          id: `trf-${transferKey}`,
+          data: t.data,
+          titulo: titulo!,
+          subtitulo: t.descricao || undefined,
+          valor: t.valor,
+          tipo: 'transferencia',
+          contaCor,
+          txId: t.id,
+        });
       });
 
     // Entradas
@@ -245,82 +468,102 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
         });
       });
 
-    // Ordenar por data desc
-    return items.sort((a, b) => b.data.localeCompare(a.data));
-  }, [transacoes, contas, selectedView, selectedMonth]);
+    // Não reordena - mantém a ordem já aplicada pelos filtros em transacoesFiltradas
+    return items;
+  }, [transacoesFiltradas, contas, transacoes]);
 
-  const sortedHistory = bankHistory; // já vem ordenado desc pelo useMemo
+  // APLICAR FILTROS COMBINADOS + BUSCA DIRETAMENTE NO HISTÓRICO
+  const sortedHistory = useMemo(() => {
+    let filtered = [...bankHistory];
+    
+    // 1) BUSCA TEXTUAL GLOBAL
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(item => {
+        try {
+          // Busca na descrição/título
+          if (item.descricao && item.descricao.toLowerCase().includes(query)) return true;
+          
+          // Busca na data (formato DD/MM/YYYY)
+          if (item.data) {
+            const dataBR = item.data.split('-').reverse().join('/'); // YYYY-MM-DD para DD/MM/YYYY
+            if (dataBR.includes(query)) return true;
+          }
+          
+          // Busca no valor
+          if (item.valor) {
+            const valorStr = item.valor.toString();
+            const valorFormatado = `R$ ${item.valor.toFixed(2).replace('.', ',')}`;
+            if (valorStr.includes(query) || valorFormatado.toLowerCase().includes(query)) return true;
+          }
+          
+          // Busca no tipo de transação
+          if (item.tipo) {
+            const tipoTexto = item.tipo === 'entrada' ? 'entrada' : 
+                             item.tipo === 'saida' ? 'saída' : 
+                             item.tipo === 'transferencia' ? 'transferência' : 
+                             item.tipo === 'investimento' ? 'investimento' : '';
+            if (tipoTexto.includes(query)) return true;
+          }
+          
+          // Busca na categoria (se disponível)
+          const tx = transacoes.find(t => t.id === item.txId);
+          if (tx?.categoria_id) {
+            const categoria = categorias.find(c => c.id === tx.categoria_id);
+            if (categoria?.nome && categoria.nome.toLowerCase().includes(query)) return true;
+          }
+          
+          return false;
+        } catch (error) {
+          console.warn('Erro na busca para item:', item, error);
+          return false;
+        }
+      });
+    }
+    
+    // 2) FILTRAR POR TIPOS SE SELECIONADO
+    const tiposSelecionados = Object.entries(filters.tipos)
+      .filter(([, v]) => v)
+      .map(([k]) => k);
+    
+    if (tiposSelecionados.length > 0) {
+      filtered = filtered.filter(item => {
+        if (tiposSelecionados.includes('entrada') && item.tipo === 'entrada') return true;
+        if (tiposSelecionados.includes('saida') && item.tipo === 'saida') return true;
+        if (tiposSelecionados.includes('investimento') && item.tipo === 'investimento') return true;
+        if (tiposSelecionados.includes('transferencia') && item.tipo === 'transferencia') return true;
+        return false;
+      });
+    }
+    
+    // 3) ORDENAR POR DATA + VALOR COMBINADOS
+    filtered.sort((a, b) => {
+      // Primeiro: ordenação por data
+      let dateCompare = 0;
+      if (filters.date.mode === 'oldest') {
+        dateCompare = a.data.localeCompare(b.data); // antigas primeiro
+      } else {
+        dateCompare = b.data.localeCompare(a.data); // recentes primeiro (padrão)
+      }
+      
+      // Se datas diferentes, usa ordenação de data
+      if (dateCompare !== 0) return dateCompare;
+      
+      // Se mesma data: ordenação por valor
+      if (filters.valueOrder === 'higher') {
+        return (b.valor || 0) - (a.valor || 0); // maior valor primeiro
+      } else if (filters.valueOrder === 'lower') {
+        return (a.valor || 0) - (b.valor || 0); // menor valor primeiro
+      } else {
+        return (b.valor || 0) - (a.valor || 0); // padrão: maior valor primeiro
+      }
+    });
+    
+    return filtered;
+  }, [bankHistory, filters, searchQuery, transacoes, categorias]);
+  
   const visibleHistory = isExpanded ? sortedHistory : sortedHistory.slice(0, 6);
   const canToggleHistory = sortedHistory.length > 6;
-
-  const handleToggleHistory = () => {
-    if (isExpanded) {
-      setIsExpanded(false);
-      // garantir foco e rolagem ao cabeçalho
-      setTimeout(() => {
-        toggleBtnRef.current?.focus();
-        historyHeaderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 0);
-    } else {
-      setIsExpanded(true);
-    }
-  };
-
-  const transacoesFiltradas = useMemo(() => {
-    const [year, month] = selectedMonth.split('-').map(Number);
-    const startDate = `${selectedMonth}-01`;
-    const endDate = new Date(year, month, 0).toISOString().split('T')[0];
-    const contasVisiveisIds = selectedView === 'all' ? new Set(contas.map(c => c.id)) : new Set([selectedView]);
-    const categoriaMap = new Map(categorias.map(c => [c.id, c.nome]));
-
-    return transacoes
-      .filter(t => t.data >= startDate && t.data <= endDate)
-      .filter(t => {
-        // Para visualização de "todas as contas", mostra todas as transações normalmente
-        if (selectedView === 'all') return contasVisiveisIds.has(t.conta_id);
-        
-        // Para conta específica, mostra transações da conta
-        if (t.conta_id === selectedView) return true;
-        
-        // TAMBÉM mostra transferências onde esta conta é o destino
-        // A transação de crédito tem conta_id = destino e transferencia_par_id = debit
-        if (t.tipo === TipoCategoria.Transferencia && !t.meta_pagamento && !t.meta_saldo_inicial) {
-          // Se a conta da transação não é a selecionada, mas seu par é da conta selecionada,
-          // então esta é uma transferência recebida na conta selecionada
-          if (t.conta_id !== selectedView && t.transferencia_par_id) {
-            const pair = transacoes.find(p => p.id === t.transferencia_par_id);
-            return pair && pair.conta_id === selectedView;
-          }
-        }
-        
-        return false;
-      })
-      .sort((a, b) => {
-        const key = sortConfig.key;
-        const direction = sortConfig.direction === 'ascending' ? 1 : -1;
-
-        let valA, valB;
-        if (key === 'categoria_id') {
-            valA = categoriaMap.get(a.categoria_id) || '';
-            valB = categoriaMap.get(b.categoria_id) || '';
-        } else {
-            valA = a[key];
-            valB = b[key];
-        }
-
-        let comparison = 0;
-        if (typeof valA === 'string' && typeof valB === 'string') {
-            comparison = valA.localeCompare(valB);
-        } else if (typeof valA === 'number' && typeof valB === 'number') {
-            comparison = valA - valB;
-        }
-
-        if (comparison !== 0) return comparison * direction;
-        
-        // Secondary sort by date
-        return b.data.localeCompare(a.data);
-      });
-  }, [transacoes, selectedMonth, selectedView, contas, sortConfig, categorias]);
   
   useEffect(() => {
     if (isContaModalOpen) {
@@ -546,8 +789,8 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
                                 </div>
                             </div>
                             <div className="flex space-x-1 flex-shrink-0 pl-2 text-gray-800 dark:text-white">
-                                <button onClick={(e) => { e.stopPropagation(); openModal('editar-conta', { conta: c }); }} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"><Pencil size={18} /></button>
-                                <button onClick={(e) => { e.stopPropagation(); deleteConta(c.id); }} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600" title="Excluir Conta"><Trash2 size={18} /></button>
+                                <div onClick={(e) => { e.stopPropagation(); openModal('editar-conta', { conta: c }); }} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 cursor-pointer"><Pencil size={18} /></div>
+                                <div onClick={(e) => { e.stopPropagation(); deleteConta(c.id); }} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 cursor-pointer" title="Excluir Conta"><Trash2 size={18} /></div>
                             </div>
                         </div>
                       )
@@ -574,6 +817,159 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
             </div>
           </div>
 
+          {/* Barra de Filtros */}
+          <div className="mb-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-3 shadow-sm dark:shadow-none">
+            {/* Campo de Busca */}
+            <div className="mb-4">
+              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <Search size={16} className="mr-2 inline" />
+                Pesquisar Transações
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Digite para buscar: descrição, data, valor, categoria, tipo..."
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 pl-10 pr-4 py-3 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            <div className="grid gap-3 md:grid-cols-3">
+              {/* Filtro: Data */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Data</label>
+                <select
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  value={filters.date.mode}
+                  onChange={(e) =>
+                    setFilters((f) => ({ ...f, date: { mode: e.target.value as DateMode } }))
+                  }
+                  aria-label="Ordenar/Filtrar por data"
+                >
+                  <option value="recent">Mais recente</option>
+                  <option value="oldest">Mais antigo</option>
+                  <option value="period">Por período</option>
+                </select>
+
+                {filters.date.mode === 'period' && (
+                  <div className="mt-2 flex gap-2">
+                    <div className="flex-1">
+                      <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">De</label>
+                      <input
+                        type="date"
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+                        value={filters.date.from ?? ''}
+                        onChange={(e) =>
+                          setFilters((f) => ({ ...f, date: { ...f.date, from: e.target.value } }))
+                        }
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">Até</label>
+                      <input
+                        type="date"
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+                        value={filters.date.to ?? ''}
+                        onChange={(e) =>
+                          setFilters((f) => ({ ...f, date: { ...f.date, to: e.target.value } }))
+                        }
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Filtro: Valor */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Valor</label>
+                <select
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  value={filters.valueOrder ?? ''}
+                  onChange={(e) =>
+                    setFilters((f) => ({
+                      ...f,
+                      valueOrder: (e.target.value || undefined) as ValueOrder | undefined
+                    }))
+                  }
+                  aria-label="Ordenar por valor"
+                >
+                  <option value="">Sem ordenação por valor</option>
+                  <option value="higher">Maior valor</option>
+                  <option value="lower">Menor valor</option>
+                </select>
+              </div>
+
+              {/* Filtro: Tipo (multi-select dropdown) */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Tipo de Transação
+                </label>
+                <div className="relative tipos-dropdown">
+                  <div 
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 cursor-pointer min-h-[40px] flex items-center justify-between"
+                    onClick={() => setFilters(f => ({ ...f, showTiposDropdown: !f.showTiposDropdown }))}
+                  >
+                    <span className="flex-1 text-sm">
+                      {(() => {
+                        const selectedTipos = Object.entries(filters.tipos).filter(([,v]) => v).map(([k]) => k);
+                        if (selectedTipos.length === 0) return "Todos os tipos";
+                        if (selectedTipos.length === 1) {
+                          const tipo = selectedTipos[0] as TipoTransacao;
+                          return tipo === 'entrada' ? 'Entrada' : tipo === 'saida' ? 'Saída' : 
+                                 tipo === 'investimento' ? 'Investimento' : 'Transferência';
+                        }
+                        return `${selectedTipos.length} tipos selecionados`;
+                      })()}
+                    </span>
+                    <ChevronDown size={16} className={`text-gray-400 transition-transform ${filters.showTiposDropdown ? 'rotate-180' : ''}`} />
+                  </div>
+                  
+                  {filters.showTiposDropdown && (
+                    <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg">
+                      {(['entrada','saida','investimento','transferencia'] as const).map((t) => (
+                        <label key={t} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer text-sm border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                          <input
+                            type="checkbox"
+                            className="accent-green-500 focus:ring-green-500"
+                            checked={!!filters.tipos[t]}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              setFilters((f) => ({
+                                ...f,
+                                tipos: { ...f.tipos, [t]: e.target.checked }
+                              }));
+                            }}
+                          />
+                          <span className="text-gray-900 dark:text-gray-100">
+                            {t === 'entrada' ? 'Entrada' :
+                             t === 'saida' ? 'Saída' :
+                             t === 'investimento' ? 'Investimento' : 'Transferência'}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Erro de validação do período */}
+            {filters.date.mode === 'period' && (
+              <PeriodeValidationHint from={filters.date.from} to={filters.date.to} />
+            )}
+          </div>
+
           <div className="flex-1 bg-white dark:bg-gray-800 rounded-lg p-4 flex flex-col shadow-sm dark:shadow-none border dark:border-transparent min-h-[70vh] md:min-h-0">
             <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 gap-3">
               <div className="flex-1">
@@ -588,8 +984,39 @@ const ContasExtratoPage: React.FC<ContasExtratoPageProps> = ({
               </div>
             </div>
             <div className="overflow-y-auto flex-1 transition-all duration-200 ease-out pb-16">
+              {/* Indicador de Busca */}
+              {searchQuery.trim() && (
+                <div className="mb-3 px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center text-green-700 dark:text-green-300">
+                      <Search size={14} className="mr-2" />
+                      <span className="font-medium">Busca ativa:</span>
+                      <span className="ml-1 font-mono bg-green-100 dark:bg-green-800/50 px-2 py-1 rounded text-xs">
+                        "{searchQuery}"
+                      </span>
+                    </div>
+                    <div className="text-green-600 dark:text-green-400 text-xs font-medium">
+                      {sortedHistory.length} resultado{sortedHistory.length !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               {bankHistory.length === 0 && (
                 <div className="text-center text-gray-500 dark:text-gray-400 py-8">Nenhum evento neste período.</div>
+              )}
+              
+              {sortedHistory.length === 0 && bankHistory.length > 0 && (
+                <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+                  <Search size={32} className="mx-auto mb-2 opacity-50" />
+                  <p>Nenhuma transação encontrada para "{searchQuery}"</p>
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="mt-2 text-green-600 dark:text-green-400 hover:underline text-sm"
+                  >
+                    Limpar busca
+                  </button>
+                </div>
               )}
               {visibleHistory.map((item, idx) => {
                 const tx = transacoes.find(t => t.id === item.txId);
