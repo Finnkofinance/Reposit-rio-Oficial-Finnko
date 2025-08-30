@@ -18,7 +18,12 @@ export const transactionsService = {
           `)
           .order('data', { ascending: true });
         if (error) throw error;
-        return (data || []) as unknown as TransacaoBanco[];
+        // Mapear campos snake_case para camelCase
+        return (data || []).map(row => ({
+          ...row,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        } as any)) as TransacaoBanco[];
       }
       const item = window.localStorage.getItem('transacoes');
       return item ? JSON.parse(item) : [];
@@ -50,6 +55,8 @@ export const transactionsService = {
           recorrencia: t.recorrencia ?? null,
           recorrencia_id: t.recorrencia_id ?? null,
           objetivo_id: t.objetivo_id ?? null,
+          created_at: t.createdAt,
+          updated_at: t.updatedAt,
         }));
         const { error } = await supabase.from('transacoes_banco').upsert(payload, { onConflict: 'id' });
         if (error) throw error;
