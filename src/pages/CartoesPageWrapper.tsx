@@ -9,7 +9,7 @@ import { useAppContext } from '@/context/AppContext';
 export default function CartoesPageWrapper() {
   const { contas } = useAccounts();
   const { transacoes, addPayment } = useTransactions();
-  const { cartoes, compras, parcelas, addCartao, updateCartao, deleteCartao, deleteCompraCartao } = useCards();
+  const { cartoes, compras, parcelas, addCartao, updateCartao, deleteCartao, deleteCompraCartao, markParcelasAsPaid } = useCards();
   const { categorias } = useCategories();
   const { selectedMonth, setSelectedMonth, openModal, setCurrentPage, setConfirmation, modalState, setModalState } = useAppContext();
   
@@ -19,7 +19,10 @@ export default function CartoesPageWrapper() {
   const pagarFatura = (cartaoId: string, contaId: string, valor: number, data: string, competencia: string) => {
     const cartao = cartoes.find(c => c.id === cartaoId);
     if (cartao) {
+      // Cria a transação de pagamento
       addPayment(cartaoId, contaId, valor, data, competencia, cartao.apelido);
+      // Marca as parcelas da competência como pagas
+      markParcelasAsPaid(cartaoId, competencia);
     }
   };
 

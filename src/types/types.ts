@@ -98,6 +98,7 @@ export interface ParcelaCartao {
   n_parcela: number;
   valor_parcela: number;
   competencia_fatura: string; // YYYY-MM
+  paga?: boolean; // indica se a parcela foi paga
   createdAt?: string;
   updatedAt?: string;
 }

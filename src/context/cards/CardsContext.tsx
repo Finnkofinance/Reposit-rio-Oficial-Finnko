@@ -14,6 +14,7 @@ interface CardsContextType {
   addRecurringCompraCartao: (compraData: Omit<CompraCartao, 'id' | 'createdAt' | 'updatedAt' | 'parcelas_total'>) => boolean;
   updateCompraCartao: (compra: CompraCartao & { parcelas: number }) => boolean;
   deleteCompraCartao: (id: string) => void;
+  markParcelasAsPaid: (cartaoId: string, competencia: string) => void;
   bulkReplaceCompras: (compras: CompraCartao[]) => void;
   bulkReplaceParcelas: (parcelas: ParcelaCartao[]) => void;
   bulkReplaceCartoes: (cartoes: Cartao[]) => void;
@@ -182,6 +183,28 @@ export const CardsProvider: React.FC<CardsProviderProps> = ({ children }) => {
     setCartoes(newCartoes);
   };
 
+  const markParcelasAsPaid = (cartaoId: string, competencia: string) => {
+    const parcelasToUpdate = parcelas.filter(p => {
+      const compra = compras.find(c => c.id === p.compra_id);
+      return compra?.cartao_id === cartaoId && p.competencia_fatura === competencia && !p.paga;
+    });
+
+    if (parcelasToUpdate.length === 0) return;
+
+    // Atualiza localmente
+    setParcelas(prev => prev.map(p => {
+      const shouldUpdate = parcelasToUpdate.some(pu => pu.id === p.id);
+      return shouldUpdate ? { ...p, paga: true } : p;
+    }));
+
+    // Persiste no banco
+    parcelasToUpdate.forEach(parcela => {
+      cardsService.markInstallmentAsPaid(parcela.id).catch(err => {
+        console.error('Error marking installment as paid:', err);
+      });
+    });
+  };
+
   return (
     <CardsContext.Provider value={{
       cartoes,
@@ -194,6 +217,7 @@ export const CardsProvider: React.FC<CardsProviderProps> = ({ children }) => {
       addRecurringCompraCartao,
       updateCompraCartao,
       deleteCompraCartao,
+      markParcelasAsPaid,
       bulkReplaceCompras,
       bulkReplaceParcelas,
       bulkReplaceCartoes

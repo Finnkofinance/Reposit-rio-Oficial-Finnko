@@ -407,10 +407,6 @@ const CartoesPage: React.FC<CartoesPageProps> = (props) => {
                                         <div className="text-sm text-gray-500 dark:text-gray-400">{formatCurrency(cartao.faturaAtual)}</div>
                                     </div>
                                 </div>
-                                <div className="flex space-x-1 flex-shrink-0 pl-2 text-gray-800 dark:text-white">
-                                    <button onClick={(e) => { e.stopPropagation(); openModal('editar-cartao', { cartao }); }} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"><Pencil size={18} /></button>
-                                    <button onClick={(e) => { e.stopPropagation(); deleteCartao(cartao.id); }} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"><Trash2 size={18} /></button>
-                                </div>
                             </div>
                         )
                     }))}

@@ -102,6 +102,7 @@ export const cardsService = {
         n_parcela: i + 1,
         valor_parcela: valoresParcelas[i],
         competencia_fatura: `${compYear}-${String(compMonth + 1).padStart(2, '0')}`,
+        paga: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
@@ -152,13 +153,14 @@ export const cardsService = {
         n_parcela: idx + 1,
         valor_parcela: valor,
         competencia_fatura: `${compYear}-${String(compMonth + 1).padStart(2, '0')}`,
+        paga: false,
       };
     });
 
     const { data: insertParcelas, error: parcelasErr } = await supabase
       .from('parcelas_cartao')
       .insert(parcelasRows)
-      .select('id, compra_id, n_parcela, valor_parcela, competencia_fatura');
+      .select('id, compra_id, n_parcela, valor_parcela, competencia_fatura, paga');
     if (parcelasErr) throw parcelasErr;
 
     const compra: CompraCartao = {
@@ -181,6 +183,7 @@ export const cardsService = {
       n_parcela: p.n_parcela as number,
       valor_parcela: p.valor_parcela as number,
       competencia_fatura: p.competencia_fatura as string,
+      paga: (p.paga as boolean) ?? false,
     }));
 
     return { compra, parcelas };
@@ -219,6 +222,7 @@ export const cardsService = {
         n_parcela: 1,
         valor_parcela: newCompra.valor_total,
         competencia_fatura: `${year}-${String(month + 1).padStart(2, '0')}`,
+        paga: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -278,13 +282,14 @@ export const cardsService = {
         n_parcela: 1,
         valor_parcela: c.valor_total,
         competencia_fatura: `${year}-${String(month + 1).padStart(2, '0')}`,
+        paga: false,
       });
     }
 
     const { data: parcIns, error: errParc } = await supabase
       .from('parcelas_cartao')
       .insert(parcelasInserir)
-      .select('id, compra_id, n_parcela, valor_parcela, competencia_fatura');
+      .select('id, compra_id, n_parcela, valor_parcela, competencia_fatura, paga');
     if (errParc) throw errParc;
 
     const compras: CompraCartao[] = (comprasIns || []).map(c => ({
@@ -307,6 +312,7 @@ export const cardsService = {
       n_parcela: p.n_parcela as number,
       valor_parcela: p.valor_parcela as number,
       competencia_fatura: p.competencia_fatura as string,
+      paga: (p.paga as boolean) ?? false,
     }));
 
     return { compras, parcelas };
@@ -329,6 +335,7 @@ export const cardsService = {
         n_parcela: i + 1,
         valor_parcela: valoresParcelas[i],
         competencia_fatura: `${compYear}-${String(compMonth + 1).padStart(2, '0')}`,
+        paga: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
@@ -380,12 +387,13 @@ export const cardsService = {
         n_parcela: idx + 1,
         valor_parcela: valor,
         competencia_fatura: `${compYear}-${String(compMonth + 1).padStart(2, '0')}`,
+        paga: false,
       };
     });
     const { data: newParc, error: insParcErr } = await supabase
       .from('parcelas_cartao')
       .insert(parcelasRows)
-      .select('id, compra_id, n_parcela, valor_parcela, competencia_fatura');
+      .select('id, compra_id, n_parcela, valor_parcela, competencia_fatura, paga');
     if (insParcErr) throw insParcErr;
 
     const updatedCompra: CompraCartao = {
@@ -399,6 +407,7 @@ export const cardsService = {
       n_parcela: p.n_parcela as number,
       valor_parcela: p.valor_parcela as number,
       competencia_fatura: p.competencia_fatura as string,
+      paga: (p.paga as boolean) ?? false,
     }));
 
     return { updatedCompra, newParcelas };
@@ -441,6 +450,7 @@ export const cardsService = {
           n_parcela: p.n_parcela as number,
           valor_parcela: p.valor_parcela as number,
           competencia_fatura: p.competencia_fatura as string,
+          paga: (p.paga as boolean) ?? false,
         }));
         return { compras, parcelas };
       }
@@ -468,6 +478,40 @@ export const cardsService = {
       }
     } catch (error) {
       console.error('Error deleting purchase:', error);
+      throw error;
+    }
+  },
+
+  // Marca parcela como paga no banco de dados
+  markInstallmentAsPaid: async (parcelaId: string): Promise<void> => {
+    try {
+      const { data: auth } = await supabase.auth.getSession();
+      if (auth.session?.user) {
+        const { error } = await supabase
+          .from('parcelas_cartao')
+          .update({ paga: true })
+          .eq('id', parcelaId);
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.error('Error marking installment as paid:', error);
+      throw error;
+    }
+  },
+
+  // Desmarca parcela como paga no banco de dados
+  unmarkInstallmentAsPaid: async (parcelaId: string): Promise<void> => {
+    try {
+      const { data: auth } = await supabase.auth.getSession();
+      if (auth.session?.user) {
+        const { error } = await supabase
+          .from('parcelas_cartao')
+          .update({ paga: false })
+          .eq('id', parcelaId);
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.error('Error unmarking installment as paid:', error);
       throw error;
     }
   },
